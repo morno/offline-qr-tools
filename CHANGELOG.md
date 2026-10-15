@@ -4,9 +4,10 @@ All notable changes are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.1] - 2026-10-15
 
 ### Added
+
 - Template gallery: 17 ready-made looks (café, restaurant, hotel, office, gym, beauty, estate agent,
   shop, event, wedding, modern round, Christmas, Lucia, Easter, Midsummer, Halloween, Valentine's
   Day). A template never changes the content; its suggested texts only fill empty fields.
@@ -33,6 +34,7 @@ All notable changes are listed here. The format follows
   caption on the tear-off stub. Works on a transparent background.
 
 ### Fixed
+
 - Short codes with a logo (e.g. a one-word text) could not be scanned; with a logo a code is now
   at least version 3, and the format information next to the corners is never covered.
 - Logo loading: removing a logo while it was still loading, or picking a Swish look during a
@@ -71,11 +73,13 @@ All notable changes are listed here. The format follows
   disappear; the automatic white paper colour is now undone when you switch away.
 
 ### Changed
+
 - The release zip is reproducible: the same commit always gives the same file and checksum.
 
-## [1.1.0] - 2026-10-03
+## [0.1.0] - 2026-10-03
 
 ### Added
+
 - Content types: web address, text, e-mail, phone, SMS, contact card (vCard), location,
   calendar event and Swish payment, next to Wi-Fi.
 - Swish: the same link as Swish's own generator, separate locks for amount and message, and
@@ -95,10 +99,11 @@ All notable changes are listed here. The format follows
 - Publishing to GitHub Pages and release zips with a SHA-256 checksum (`tools/build-site.sh`).
 
 ### Security
+
 - Strict CSP with no network access; hardened logo pipeline; design files validated field by
   field; static tests for the security rules.
 
-## [1.0.0]
+## [0.1.0]
 
 - First version: Wi-Fi QR codes with styling, scan self-test, PNG/SVG/PDF export and print
   layouts.
