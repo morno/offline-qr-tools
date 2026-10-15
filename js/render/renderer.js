@@ -152,7 +152,9 @@ function buildScene(qr, S, o) {
     items.push(it);
   });
 
-  return { w: W, h: H, items: items, cell: cell, lowTextContrast: state.lowTextContrast };
+  // block: where the QR block (code + quiet zone) ended up, for tests and callers that need it.
+  return { w: W, h: H, items: items, cell: cell, lowTextContrast: state.lowTextContrast,
+    block: { x: block.x, y: block.y, size: block.size, radius: blockRadius } };
 }
 
 /* =========================================================================

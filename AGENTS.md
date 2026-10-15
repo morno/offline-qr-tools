@@ -136,7 +136,8 @@ WEP 5/13 chars or 10/26 hex. Security type, EAP method and phase 2 are whitelist
 are inserted unescaped. `buildPayload()` in `js/app.js` only reads the form and calls it.
 
 ### Scene model and renderers (`js/render/*`)
-`buildScene(qr, sizePx, opts)` returns `{ w, h, items, cell, lowTextContrast }` where `items` is a
+`buildScene(qr, sizePx, opts)` returns `{ w, h, items, cell, lowTextContrast, block }` (`block`:
+`{ x, y, size, radius }` of the code plus quiet zone) where `items` is a
 flat list of primitives: `rect`, `path` (SVG path syntax), `circle`, `text` (optionally `rotate`,
 radians around its centre), `image` (an `<img>` or a `<canvas>`).
 `sceneToCanvas()` (PNG, PDF, preview) and `sceneToSVG()` render the same list, so every style is
@@ -161,6 +162,9 @@ Surface options: `opts.qrCornerRadius` (`QR_CORNER_RADII`, in modules) rounds th
 capped at 3/4 of the quiet zone so they never reach a finder pattern; `opts.bgPattern`
 (`BACKGROUND_PATTERNS`, `backgroundPatternD()`) draws a faint pattern on the page only — the block
 and its quiet zone are painted over it, and transparent exports leave it out.
+An e2e test checks pixel for pixel that no pattern changes the block, for every frame on light and
+dark paper; only the light code is scan-tested too (a light code on dark paper is inverted, the app
+only warns about it, and jsQR's result there varies with fonts between machines).
 
 Transparent export (`opts.transparent`, PNG/SVG downloads only, never preview or PDF): the page
 background and the QR background are left out, except when the template sets

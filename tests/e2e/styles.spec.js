@@ -99,22 +99,47 @@ test("background patterns stay outside the code and are left out of transparent 
   await enterNetwork(page, SSID, PASSWORD);
   const result = await page.evaluate(() => {
     const bad = [];
-    const statusOf = function(frame, pattern, dark) {
-      const opts = Object.assign(getRenderOpts(), { bgPattern: pattern, frameStyle: frame, qrBgColor: dark ? "#0f172a" : "#ffffff", qrColor: dark ? "#ffffff" : "#000000",
+    const optsFor = function(frame, pattern, dark) {
+      return Object.assign(getRenderOpts(), { bgPattern: pattern, frameStyle: frame, qrBgColor: dark ? "#0f172a" : "#ffffff", qrColor: dark ? "#ffffff" : "#000000",
         textStyle: "plain", title: "Gäst-WiFi", caption: "Skanna mig" });
-      const scene = buildScene(currentQR, 560, opts);
-      return verifyScan(sceneToCanvas(scene), scene.cell, currentPayload).status;
+    };
+    // Counts pixels inside the QR block (code + quiet zone, 1 px in from its edge and its
+    // rounded corners, where anti-aliasing may blend) that differ between two renders.
+    const blockDiff = function(a, b) {
+      const blk = a.block;
+      const pa = sceneToCanvas(a).getContext("2d").getImageData(0, 0, a.w, a.h).data;
+      const pb = sceneToCanvas(b).getContext("2d").getImageData(0, 0, b.w, b.h).data;
+      const x0 = Math.ceil(blk.x) + 1, y0 = Math.ceil(blk.y) + 1;
+      const x1 = Math.floor(blk.x + blk.size) - 1, y1 = Math.floor(blk.y + blk.size) - 1;
+      const r = blk.radius;
+      let diff = 0;
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const cx = Math.min(Math.max(x + 0.5, blk.x + r), blk.x + blk.size - r);
+          const cy = Math.min(Math.max(y + 0.5, blk.y + r), blk.y + blk.size - r);
+          if (r > 0 && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) > r - 1.5) continue;
+          const i = (y * a.w + x) * 4;
+          if (pa[i] !== pb[i] || pa[i + 1] !== pb[i + 1] || pa[i + 2] !== pb[i + 2] || pa[i + 3] !== pb[i + 3]) diff++;
+        }
+      }
+      return diff;
     };
     for (const frame of Object.keys(FRAME_TEMPLATES)) {
-      // Light modules on a dark background are an inverted code: the app already warns about
-      // those and jsQR misses a few at some sizes. There the rule is that a pattern never makes
-      // the result worse than the same frame without one.
-      const darkWithout = statusOf(frame, "none", true);
-      for (const pattern of BACKGROUND_PATTERNS.slice(1)) {
-        const light = statusOf(frame, pattern, false);
-        if (light !== "ok") bad.push([pattern, frame, "light", light].join("/"));
-        const dark = statusOf(frame, pattern, true);
-        if (dark === "fail" && darkWithout !== "fail") bad.push([pattern, frame, "dark", dark].join("/"));
+      for (const dark of [false, true]) {
+        const plain = buildScene(currentQR, 560, optsFor(frame, "none", dark));
+        for (const pattern of BACKGROUND_PATTERNS.slice(1)) {
+          const scene = buildScene(currentQR, 560, optsFor(frame, pattern, dark));
+          // The real guarantee, exact and independent of jsQR and fonts: a pattern never
+          // changes a single pixel of the code or its quiet zone, on light or dark paper.
+          const diff = blockDiff(plain, scene);
+          if (diff) bad.push([pattern, frame, dark ? "dark" : "light", diff + " px in block"].join("/"));
+          // Dark codes are inverted and only get a warning from the app, so only the light
+          // code must also pass the scan self-test.
+          if (!dark) {
+            const status = verifyScan(sceneToCanvas(scene), scene.cell, currentPayload).status;
+            if (status !== "ok") bad.push([pattern, frame, "light", status].join("/"));
+          }
+        }
       }
     }
     const plainSvg = sceneToSVG(buildScene(currentQR, 300, Object.assign(getRenderOpts(), { frameStyle: "border", bgPattern: "none" })));
