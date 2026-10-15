@@ -81,6 +81,38 @@ function shadeHex(hex, amount) {
   return "#" + mix(c.r) + mix(c.g) + mix(c.b);
 }
 
+// Picks colours for the code from a logo's pixels (RGBA bytes, e.g. from getImageData).
+// Opaque pixels are grouped into coarse colour buckets; the most common bucket that is dark enough
+// against the background becomes the code colour (darkened step by step when none is), and the
+// next distinct bucket becomes the accent (frame) colour. Returns { qr, accent } or null.
+function pickLogoColors(rgba, bgHex) {
+  const bg = relativeLuminance(sanitizeHex(bgHex, "#ffffff"));
+  const buckets = {};
+  for (let i = 0; i + 3 < rgba.length; i += 4) {
+    if (rgba[i + 3] < 200) continue;
+    const key = (rgba[i] >> 4) + "," + (rgba[i + 1] >> 4) + "," + (rgba[i + 2] >> 4);
+    const b = buckets[key] || (buckets[key] = { n: 0, r: 0, g: 0, b: 0 });
+    b.n++; b.r += rgba[i]; b.g += rgba[i + 1]; b.b += rgba[i + 2];
+  }
+  const toHex = function(v) { return Math.round(v).toString(16).padStart(2, "0"); };
+  const colors = Object.keys(buckets).map(function(k) {
+    const b = buckets[k];
+    return { n: b.n, hex: "#" + toHex(b.r / b.n) + toHex(b.g / b.n) + toHex(b.b / b.n) };
+  }).filter(function(c) {
+    // Near-white and near-background colours are the logo's own background, not its brand colour.
+    return Math.abs(relativeLuminance(c.hex) - bg) > 0.12;
+  }).sort(function(a, b) { return b.n - a.n; });
+  if (!colors.length) return null;
+  const readable = function(hex) {
+    let out = hex;
+    for (let i = 0; i < 12 && Math.abs(relativeLuminance(out) - bg) < 0.5; i++) out = shadeHex(out, bg > 0.5 ? -0.15 : 0.15);
+    return out;
+  };
+  const qr = readable(colors[0].hex);
+  const other = colors.filter(function(c) { return Math.abs(relativeLuminance(c.hex) - relativeLuminance(colors[0].hex)) > 0.08; })[0];
+  return { qr: qr, accent: other ? other.hex : qr };
+}
+
 // Rounds coordinates so SVG output stays compact and deterministic.
 function f(n) {
   return Math.round(n * 100) / 100;

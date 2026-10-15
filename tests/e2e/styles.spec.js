@@ -331,3 +331,171 @@ test("logo shapes and ring: cropped logos stay scannable and export as a clean P
   await expect(page.locator("#logoInitials")).toHaveValue("");
   await expect(page.locator("#designLogoWrap")).toBeVisible();
 });
+
+test("shape frames: the code square lies inside the silhouette with a margin", async ({ guarded: page }) => {
+  await openApp(page);
+  const result = await page.evaluate(() => {
+    const ctx = document.createElement("canvas").getContext("2d");
+    const out = {};
+    for (const kind of Object.keys(SILHOUETTES)) {
+      const sh = SILHOUETTES[kind];
+      const path = new Path2D(scaledPath(sh.d, 1, 0));
+      const [x, y, s] = sh.inner;
+      const m = 2; // units outside the square that must still be inside the outline
+      let inside = true;
+      for (let t = 0; t <= 1; t += 0.02) {
+        const pts = [[x - m + t * (s + 2 * m), y - m], [x - m + t * (s + 2 * m), y + s + m], [x - m, y - m + t * (s + 2 * m)], [x + s + m, y - m + t * (s + 2 * m)]];
+        for (const [px, py] of pts) if (!ctx.isPointInPath(path, px, py, sh.evenodd ? "evenodd" : "nonzero")) inside = false;
+      }
+      out[kind] = inside && FRAME_TEMPLATES[kind] && FRAME_TEMPLATES[kind].silhouette === kind;
+    }
+    return out;
+  });
+  expect(Object.keys(result).length).toBeGreaterThanOrEqual(7);
+  for (const [kind, ok] of Object.entries(result)) expect(ok, kind).toBe(true);
+});
+
+test("round code: decoy dots stay outside the quiet zone, follow the dot shape and the frame colour", async ({ guarded: page }) => {
+  await openApp(page);
+  await enterNetwork(page, SSID, PASSWORD);
+  const result = await page.evaluate(() => {
+    const bad = [];
+    for (const quietZone of QUIET_ZONE_CHOICES) {
+      for (const shape of ["square", "dots", "liquid", "stars"]) {
+        const opts = Object.assign(getRenderOpts(), { frameStyle: "roundCode", quietZone: quietZone, qrShape: shape, frameColor: "#7c3aed" });
+        const scene = buildScene(currentQR, 600, opts);
+        // Paint only the decoys and check that none of their pixels fall inside the block.
+        const decoys = scene.items.find((it) => it.type === "path" && it.fill === "#7c3aed");
+        const c = document.createElement("canvas"); c.width = scene.w; c.height = scene.h;
+        const ctx = c.getContext("2d"); ctx.fillStyle = "#000"; ctx.fill(new Path2D(decoys.d));
+        const n = currentQR.getModuleCount();
+        const B = scene.cell * (n + quietZone * 2);
+        const bx = Math.round((scene.w - B) / 2) + 1, by = Math.round(scene.cell * 0 + (scene.w - B) / 2) + 1;
+        const data = ctx.getImageData(bx, by, Math.floor(B) - 2, Math.floor(B) - 2).data;
+        let hits = 0;
+        for (let i = 3; i < data.length; i += 4) if (data[i] > 0) hits++;
+        if (hits) bad.push(quietZone + "/" + shape + " decoy pixels in block: " + hits);
+        if (verifyScan(sceneToCanvas(scene), scene.cell, currentPayload).status !== "ok") bad.push(quietZone + "/" + shape + " scan");
+      }
+    }
+    return bad;
+  });
+  expect(result).toEqual([]);
+});
+
+test("confetti palettes stay scannable, export every colour, and the contrast check covers them", async ({ guarded: page }) => {
+  await openApp(page);
+  await enterNetwork(page, SSID, PASSWORD);
+  const result = await page.evaluate(() => {
+    const bad = [];
+    for (const palette of Object.keys(CONFETTI_PALETTES)) {
+      for (const shape of ["square", "dots", "liquid", "sketch", "hearts"]) {
+        for (const size of [480, 640]) {
+          const opts = Object.assign(getRenderOpts(), { moduleColors: palette, qrShape: shape });
+          const scene = buildScene(currentQR, size, opts);
+          if (verifyScan(sceneToCanvas(scene), scene.cell, currentPayload).status !== "ok") bad.push(palette + "/" + shape + "/" + size);
+        }
+      }
+    }
+    const svg = sceneToSVG(buildScene(currentQR, 400, Object.assign(getRenderOpts(), { moduleColors: "rainbow" })));
+    return { bad: bad, missing: CONFETTI_PALETTES.rainbow.filter((c) => svg.indexOf('fill="' + c + '"') < 0), svg: svg };
+  });
+  expect(result.bad).toEqual([]);
+  expect(result.missing).toEqual([]);
+  expect(await svgIsWellFormed(page, result.svg)).toBe(true);
+
+  await openAllSections(page);
+  await page.selectOption("#moduleColors", "ocean");
+  await expect(page.locator("#confettiHint")).toBeVisible();
+  await waitForScan(page);
+  await expect(page.locator("#scanStatus")).toHaveAttribute("data-state", "ok");
+  await expect(page.locator("#contrastWarning")).toBeHidden();
+  // On a dark background the dark palette colours must trigger the warning.
+  await page.evaluate(() => $("#qrBgColor").val("#0f172a").trigger("change"));
+  await expect(page.locator("#contrastWarning")).toBeVisible();
+});
+
+test("colours from the logo: one click sets a readable code colour and the frame colour", async ({ guarded: page }) => {
+  await openApp(page);
+  await enterNetwork(page, SSID, PASSWORD);
+  await openAllSections(page);
+  await expect(page.locator("#logoColors")).toBeHidden();
+  const dataUrl = await page.evaluate(() => {
+    const c = document.createElement("canvas"); c.width = c.height = 200;
+    const x = c.getContext("2d"); x.fillStyle = "#ffffff"; x.fillRect(0, 0, 200, 200);
+    x.fillStyle = "#facc15"; x.fillRect(20, 20, 160, 120); x.fillStyle = "#1d4ed8"; x.fillRect(20, 140, 160, 40);
+    return c.toDataURL("image/png");
+  });
+  await page.setInputFiles("#logoFile", { name: "logo.png", mimeType: "image/png", buffer: Buffer.from(dataUrl.split(",")[1], "base64") });
+  await expect(page.locator("#logoColors")).toBeVisible();
+  await page.click("#logoColors");
+  await expect(page.locator("#logoColorsStatus")).toHaveAttribute("data-i18n", "logoColorsDone");
+  const colors = await page.evaluate(() => ({ qr: $("#qrColor").val(), frame: $("#frameColor").val(), lum: relativeLuminance($("#qrColor").val()) }));
+  // Yellow is the most common colour; it is darkened so the code stays readable on white.
+  expect(colors.qr).not.toBe("#facc15");
+  expect(1 - colors.lum).toBeGreaterThanOrEqual(0.5);
+  expect(colors.frame).toMatch(/^#[0-9a-f]{6}$/);
+  await waitForScan(page);
+  await expect(page.locator("#scanStatus")).toHaveAttribute("data-state", "ok");
+  await expect(page.locator("#contrastWarning")).toBeHidden();
+  // A generated logo (initials) has no colours to pick.
+  await page.fill("#logoInitials", "AB");
+  await waitForScan(page);
+  await expect(page.locator("#logoColors")).toBeHidden();
+});
+
+test("template gallery: every template gives a scannable code and never touches the content", async ({ guarded: page }) => {
+  await openApp(page);
+  await enterNetwork(page, SSID, PASSWORD);
+  await page.evaluate(() => { const d = document.getElementById("templateSection"); d.open = true; $(d).trigger("toggle"); });
+  const ids = await page.evaluate(() => TEMPLATE_GALLERY.map((x) => x.id));
+  await expect(page.locator("#templateGrid button[data-template]")).toHaveCount(ids.length);
+  await expect(page.locator("#templateGrid button canvas")).toHaveCount(ids.length);
+  const payload = await page.evaluate(() => currentPayload);
+  for (const id of ids) {
+    await page.click("#templateGrid button[data-template=" + id + "]");
+    await waitForScan(page);
+    await expect(page.locator("#scanStatus"), id).toHaveAttribute("data-state", "ok");
+    expect(await page.evaluate(() => [currentPayload, $("#ssid").val(), $("#pswd").val()])).toEqual([payload, SSID, PASSWORD]);
+  }
+  await expect(page.locator("#templateStatus")).toHaveAttribute("data-i18n", "templateApplied");
+});
+
+test("template texts fill empty fields only, and replace only the previous template's text", async ({ guarded: page }) => {
+  await openApp(page);
+  await enterNetwork(page, SSID, PASSWORD);
+  await openAllSections(page);
+  await page.click("#templateGrid button[data-template=christmas]");
+  await expect(page.locator("#titleText")).toHaveValue("God jul!");
+  await page.click("#templateGrid button[data-template=easter]");
+  await expect(page.locator("#titleText")).toHaveValue("Glad påsk!");
+  // A text the user typed is kept.
+  await page.fill("#titleText", "Min egen rubrik");
+  await page.click("#templateGrid button[data-template=midsummer]");
+  await expect(page.locator("#titleText")).toHaveValue("Min egen rubrik");
+  // A template without texts leaves the user's text alone too, and resets earlier template options.
+  await page.click("#templateGrid button[data-template=modern]");
+  await expect(page.locator("#titleText")).toHaveValue("Min egen rubrik");
+  await expect(page.locator("#frameStyle")).toHaveValue("roundCode");
+  await page.click("#templateGrid button[data-template=office]");
+  await expect(page.locator("#moduleColors")).toHaveValue("single");
+  await waitForScan(page);
+});
+
+test("templates are only valid style values (checked through the design-file validation)", async ({ guarded: page }) => {
+  await openApp(page);
+  const problems = await page.evaluate(() => {
+    const out = [];
+    const enums = designEnumOptions();
+    for (const tpl of TEMPLATE_GALLERY) {
+      const style = templateStyle(tpl);
+      const r = parseDesignFile(JSON.stringify(buildDesign(style, null)), enums);
+      if (r.error || r.skipped) out.push(tpl.id + ": " + (r.error || r.skipped + " skipped"));
+      for (const key of Object.keys(style)) if (!Object.prototype.hasOwnProperty.call(DESIGN_FIELDS, key)) out.push(tpl.id + ": unknown field " + key);
+      if (!I18N.sv[tpl.labelKey] || !I18N.en[tpl.labelKey]) out.push(tpl.id + ": label");
+      if (tpl.titleKey && !(I18N.sv[tpl.titleKey] && I18N.en[tpl.titleKey] && I18N.sv[tpl.captionKey] && I18N.en[tpl.captionKey])) out.push(tpl.id + ": texts");
+    }
+    return out;
+  });
+  expect(problems).toEqual([]);
+});

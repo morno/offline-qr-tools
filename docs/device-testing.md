@@ -58,6 +58,10 @@ Use the Wi-Fi code from row 1. Each style should scan as quickly as the plain sq
 | 30 | Round badge frame (curved text) and corner band frame | | |
 | 31 | Map pin and envelope frames | | |
 | 32 | Initials logo and the Wi-Fi icon logo, 30 % | | |
+| 33 | Round code with decoy dots (dots shape, light frame colour) | | |
+| 34 | Heart and coffee cup shape frames | | |
+| 35 | Confetti "rainbow" with hand-drawn dots | | |
+| 36 | Templates "Jul", "Midsommar" and "Modern rund" | | |
 
 ## 3. Printouts
 

@@ -24,14 +24,19 @@ Create styled, print-ready QR codes for **Wi-Fi**, **web addresses**, **text**, 
 - Direct links to a type, e.g. `index.html#url` or `index.html#vcard`
 - Opens in your browser's language (Swedish or English, otherwise English), remembers a manual
   choice, and `?lang=sv` / `?lang=en` in a link forces a language
-- Styling: 19 dot shapes (squares, small squares, rounded, circles, flowing, liquid, classy,
-  classy rounded, diamonds, hexagons, plus signs, hearts, stars, drops, beads, squircles, mosaic,
+- **Template gallery**: 17 ready-made looks for cafés, restaurants, hotels, offices, gyms, shops,
+  estate agents, events and weddings, and for Christmas, Lucia, Easter, Midsummer, Halloween and
+  Valentine's Day — one click, then adjust anything
+- Styling: 20 dot shapes (squares, small squares, rounded, circles, flowing, liquid, classy,
+  classy rounded, diamonds, hexagons, plus signs, hearts, stars, drops, beads, squircles, mosaic, hand-drawn,
   vertical and horizontal lines), 12 corner styles, color gradients (fixed directions, a custom
   angle or radial, with an optional third colour), separate colours for the corners and their
   centres, rounded corners on the code area, subtle background patterns, brand colours shown in
-  every colour picker, quick styles (Classic, Modern, Elegant, Playful, Minimal, Retro) and 29
+  every colour picker, confetti colours, colours picked from your logo, quick styles (Classic,
+  Modern, Elegant, Playful, Minimal, Retro) and 37
   frames — from a simple border, card, ticket, Polaroid and postage stamp to a hang tag, corner
-  band, awning, chalkboard, tab, arrow, raised card and round badge, plus frames that match the
+  band, awning, chalkboard, tab, arrow, raised card, round badge, a round code with decoy dots and
+  shape frames (heart, house, coffee cup, gift, shield, paw, cloud), plus frames that match the
   content type (calendar page, map pin, envelope, phone, business card, Wi-Fi symbol), offered
   with one click. Every shape and frame combination is decode-tested.
 - Logo with an empty area behind it (the modules are removed, the code's positioning patterns

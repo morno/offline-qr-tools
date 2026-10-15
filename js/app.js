@@ -117,10 +117,12 @@ function updateQrStyleVisibility() {
   $("#useGradientColor3Wrap").toggle(graded);
   $("#gradientColor3Wrap").toggle(graded && $("#useGradientColor3").is(":checked"));
   $("#eyeBallColorWrap").toggle($("#customEyeBallColor").is(":checked"));
+  // Confetti colours replace the code colour and gradient for the dots (the corners keep them).
+  $("#confettiHint").toggle($("#moduleColors").val() !== "single");
   $("#gradientAngleWrap").toggle($("#gradient").val() === "angle");
   $("#eyeColorWrap").toggle($("#customEyeColor").is(":checked"));
 }
-$("#gradient, #customEyeColor, #useGradientColor3, #customEyeBallColor").on("change", updateQrStyleVisibility);
+$("#gradient, #customEyeColor, #useGradientColor3, #customEyeBallColor, #moduleColors").on("change", updateQrStyleVisibility);
 updateQrStyleVisibility();
 
 // Shows the angle next to the label; screen readers announce "45°" instead of a bare number.
@@ -221,6 +223,7 @@ function checkQrContrast() {
   if (o.gradientColor3) inks.push(o.gradientColor3);
   if (o.eyeColor) inks.push(o.eyeColor);
   if (o.eyeBallColor) inks.push(o.eyeBallColor);
+  if (o.moduleColors !== "single") inks.push.apply(inks, CONFETTI_PALETTES[o.moduleColors]);
   const bg = relativeLuminance(o.qrBgColor);
   const weak = inks.some(function(ink) { return Math.abs(relativeLuminance(ink) - bg) < 0.4; });
   $("#contrastWarning").toggle(weak);
@@ -347,6 +350,7 @@ function getRenderOpts() {
     eyeBallColor: $("#customEyeBallColor").is(":checked") ? sanitizeHex($("#eyeBallColor").val(), qrColor) : null,
     qrCornerRadius: QR_CORNER_RADII.indexOf(parseInt($("#qrCornerRadius").val(), 10)) >= 0 ? parseInt($("#qrCornerRadius").val(), 10) : 0,
     bgPattern: BACKGROUND_PATTERNS.indexOf($("#bgPattern").val()) >= 0 ? $("#bgPattern").val() : "none",
+    moduleColors: Object.prototype.hasOwnProperty.call(CONFETTI_PALETTES, $("#moduleColors").val()) ? $("#moduleColors").val() : "single",
     qrColor: qrColor,
     qrBgColor: sanitizeHex($("#qrBgColor").val(), "#ffffff"),
     logoSizePercent: Math.max(10, Math.min(30, parseInt($("#logoSize").val(), 10) || 20)),
@@ -607,7 +611,7 @@ $("input[name=qrType]").on("change", function() {
   updatePreview();
 });
 $("#security, #eapMethod, #phase2, #anonIdentity, #hidden, #evAllDay, #swAmountLocked, #swMessageLocked, #qrShape, #eyeStyle, #gradient, #gradientAngle, #gradientColor2, " +
-  "#customEyeColor, #eyeColor, #useGradientColor3, #gradientColor3, #customEyeBallColor, #eyeBallColor, #qrCornerRadius, #bgPattern, " +
+  "#customEyeColor, #eyeColor, #moduleColors, #useGradientColor3, #gradientColor3, #customEyeBallColor, #eyeBallColor, #qrCornerRadius, #bgPattern, " +
   "#qrColor, #qrBgColor, #frameStyle, #frameColor, #frameColor2, " +
   "#textStyle, #textBgColor, #textSize, #autoTextColor, #textColor, #wifiIcon, #logoSize, #logoBackground, #logoShape, #logoRing, #quietZone, #ecLevel").on("input change", updatePreview);
 $("#logoShape").on("change", function() { $("#logoRingWrap").toggle($(this).val() !== "original"); });

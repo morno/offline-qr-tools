@@ -33,6 +33,7 @@ const DESIGN_FIELDS = {
   qrColor: { kind: "hex" },
   qrBgColor: { kind: "hex" },
   gradient: { kind: "enum" },
+  moduleColors: { kind: "enum" },
   gradientAngle: { kind: "int", min: 0, max: 355 },
   gradientColor2: { kind: "hex" },
   useGradientColor3: { kind: "bool" },

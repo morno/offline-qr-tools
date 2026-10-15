@@ -88,3 +88,22 @@ test("resolveLanguage ignores unknown or malformed codes", () => {
   }
   assert.equal(get("resolveLanguage")({ available: ["sv"], fallback: "en", browser: ["de"] }), "sv"); // fallback missing → first available
 });
+
+test("pickLogoColors: the most common logo colour, made dark enough for the background", () => {
+  const { loadScripts } = require("../support/load-scripts");
+  const g = loadScripts(["js/core/util.js"]);
+  const pick = g("pickLogoColors");
+  const lum = g("relativeLuminance");
+  const px = (list) => { const out = []; for (const [r, gg, b, a, n] of list) for (let i = 0; i < n; i++) out.push(r, gg, b, a); return out; };
+  // Mostly white background, then purple, then some orange.
+  const logo = px([[255, 255, 255, 255, 500], [109, 40, 217, 255, 300], [234, 88, 12, 255, 100], [0, 0, 0, 0, 200]]);
+  const r = pick(logo, "#ffffff");
+  assert.equal(r.qr, "#6d28d9");
+  assert.equal(r.accent, "#ea580c");
+  // A light yellow logo is darkened until it stands out from white.
+  const yellow = pick(px([[253, 224, 71, 255, 50]]), "#ffffff");
+  assert.ok(1 - lum(yellow.qr) >= 0.5, yellow.qr);
+  // Nothing usable: only transparent and background-coloured pixels.
+  assert.equal(pick(px([[255, 255, 255, 255, 50], [10, 10, 10, 0, 50]]), "#ffffff"), null);
+  assert.equal(pick([], "#ffffff"), null);
+});

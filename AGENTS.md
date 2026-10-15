@@ -62,7 +62,7 @@ js/core/password.js         PURE: generateWifiPassword(randomBytes) — the UI p
 js/core/design.js           PURE: design files — DESIGN_FIELDS, buildDesign(), parseDesignFile()
 js/render/scene.js          Scene primitives, text fitting (needs a canvas)
 js/render/shapes.js         PURE: MODULE_SHAPES, EYE_STYLES, GRADIENT_TYPES, qrPaint()
-js/render/templates.js      FRAME_TEMPLATES (29 frames, see "Frame templates") and their text helpers
+js/render/templates.js      FRAME_TEMPLATES (37 frames, see "Frame templates"), SILHOUETTES and their text helpers
 js/render/renderer.js       buildScene(), sceneToCanvas(), sceneToSVG()
 js/ui/state.js              Shared mutable UI state (currentQR, currentPayload, …)
 js/ui/i18n.js               t(), applyI18n(), language picker
@@ -71,7 +71,8 @@ js/ui/scan-check.js         Scan self-test (jsQR)
 js/ui/logo.js               Hardened logo upload (decodeLogoBuffer, also used for design files; loadBundledLogo); a load counter makes the newest load or removal win;
                             logo shapes (shapedLogo), generated logos from initials or LOGO_ICONS
 js/assets/swish-symbols.js  GENERATED: the Swish symbol (colour + grayscale) as data URLs — Getswish AB trademark
-js/ui/design-file.js        Save / open design files (loaded last)
+js/ui/design-file.js        Save / open design files (must never touch text fields — a unit test checks)
+js/ui/template-gallery.js   Template gallery (TEMPLATE_GALLERY), applied through the design-file path (loaded last)
 js/app.js                   Controller: form → payload → preview → downloads (loaded last but one)
 js/print-layouts.js         Print PDFs: sign, table tent, card sheet
 assets/flags/<code>.svg     Local flag icons for the language picker (un.svg = fallback)
@@ -91,7 +92,7 @@ and the app must work when `index.html` is double-clicked):
 `vendor/*` → `lang/*.js` → `js/core/*` → `js/render/scene.js` → `js/render/shapes.js` →
 `js/render/templates.js` → `js/render/renderer.js` → `js/ui/state.js` → `js/ui/i18n.js` →
 `js/ui/color-picker.js` → `js/ui/scan-check.js` → `js/ui/logo.js` → `js/assets/swish-symbols.js` → `js/app.js` → `js/print-layouts.js` →
-`js/ui/design-file.js`.
+`js/ui/design-file.js` → `js/ui/template-gallery.js`.
 Keep `js/core/*` free of DOM/jQuery so it stays unit-testable in Node.
 
 ## Architecture
@@ -170,12 +171,16 @@ self-test show the code on the surface the user said it will be placed on.
 
 ### QR shapes and colours (`js/render/shapes.js`)
 - `MODULE_SHAPES`: square, rounded, dots, fluid, classy, diamond, smallSquares, hexagons, plus,
-  hearts, vlines, hlines, liquid, classyRounded, beads, squircle, stars, drops, mosaic. Each returns
+  hearts, vlines, hlines, liquid, classyRounded, beads, squircle, stars, drops, sketch, mosaic. Each returns
   SVG path data for all data modules (`pathD(isDark, n, x0, y0, cell)`); neighbour-aware shapes
   query `isDark(row ± 1, col ± 1)`, which is `false` outside the code and inside the eyes.
   Shapes whose parts overlap (beads: circles plus bars) must use the same winding for every part
   (`circleCwD()` matches `roundRectD()`), or the non-zero fill rule cuts holes where they overlap.
-  `mosaic` picks sizes with a fixed hash (`moduleNoise()`), never `Math.random`.
+  `mosaic` and `sketch` (hand-drawn: jittered corners, drawn slightly larger) use a fixed hash
+  (`moduleNoise()`), never `Math.random`.
+- `CONFETTI_PALETTES` (`opts.moduleColors`): the data modules are split into groups by
+  `confettiIndex()` and drawn one path per palette colour; the eyes keep the QR or eye colour.
+  Every palette colour is dark (for light backgrounds) and is included in the contrast check.
 - `EYE_STYLES`: the three finder patterns as **tested pairs** of an `EYE_FRAME_SHAPES` ring and an
   `EYE_BALL_SHAPES` centre (square, rounded, roundedDot, circle, circleRounded, leaf, leafDot,
   pointed, squircle, chamfered, extraRounded, drop), drawn with `fillRule: "evenodd"` (so shapes inside one eye must not overlap).
@@ -212,6 +217,11 @@ stored** — no SSID, password, URL, contact details, and no heading or caption 
 have typed a secret there); a unit test checks the design code never touches those fields.
 `brandPalette` (kind `hexList`, at most `BRAND_PALETTE_MAX` distinct colours) is held in the hidden
 `#brandPalette` input — in memory and in design files only, never in `localStorage`.
+Templates (`TEMPLATE_GALLERY` in `js/ui/template-gallery.js`) are design styles applied through
+`parseDesignFile()` + `applyDesignControls()`, so they can only set what a design file can. They may
+suggest a heading and caption, filled only into empty fields or over the previous template's text;
+that code lives outside `design-file.js`, which must never touch text fields. Every template is
+scan-tested end to end.
 Opening a file treats it as hostile: size cap before reading, `JSON.parse` only, every field
 validated by kind (hex, bool, int range, enum against the options that exist in the form),
 unknown keys ignored, prototype keys inert. The logo must be a base64 PNG within the logo size
@@ -224,11 +234,21 @@ is applied: a file with a bad logo changes nothing (`errDesignLogo`). Bump
 `ticket` (notched sides, perforation, caption on the stub), `polaroid`, `stamp` (perforated
 edges), `ribbon`, `bubble`, `fieldset` (text in the outline), `hangTag`, `cornerBand`, `awning`,
 `chalkboard`, `doubleRibbon`, `splitCard` (`secondColor: true` → `#frameColor2`), `tab`, `arrow`,
-`elevated`, `badge` (curved text), and the type-matched `calendar`, `mapPin`, `envelope`, `phone`,
+`elevated`, `badge` (curved text), `roundCode`, the shape frames `heart`, `house`, `cup`, `gift`,
+`shield`, `paw`, `cloud`, and the type-matched `calendar`, `mapPin`, `envelope`, `phone`,
 `businessCard`, `wifiSignal` (`FRAME_SUGGESTIONS` in `js/app.js` offers one per content type with
 a button; never switched automatically). Each has
 `build(M, o, tx)` → `{ h, block, back, front, pageColor }`. `ownsText: true` means the template
 decides where text goes.
+
+`roundCode` fills a disc with decoy dots in the current dot shape and the frame colour, on the
+code's own grid (frames get `M.modules` and `M.quiet` for this), never inside the block and one
+extra cell away from it (hearts and stars are drawn larger than a cell). Shape frames
+(`silhouetteTemplate()`: heart, house, cup, gift, shield, paw, cloud) are outlines in a 100-unit box
+around an intact square code; `SILHOUETTES[kind].inner` is the code square, which an e2e test
+checks lies inside the outline with a margin. Both put the block on whole pixels: between pixels
+jsQR missed these codes far more often (66 → 2 misses in a sweep). This is done per template, not
+in the renderer: snapping every frame changed which sizes jsQR missed instead of fixing it.
 
 Rotated text (`rotatedText()`, `arcText()`): the renderer's overlap check uses axis-aligned boxes,
 which are far too large for turned text, so these helpers check the exact rotated rectangle
@@ -312,6 +332,10 @@ overlap the code) at any text size, so leave room for the largest text size.
 **Add a print layout:** add a function to `PRINT_LAYOUTS` in `js/print-layouts.js` returning
 `{ w, h, items, moduleMm }`, plus an `<option>` in `#printLayout` and i18n keys.
 
+**Add a template:** add an entry to `TEMPLATE_GALLERY` (style keys = `DESIGN_FIELDS` ids, label and
+optional text keys in every language file). The e2e tests apply every template and fail if one
+does not scan or uses a value the form does not offer.
+
 **Add a UI string:** add the key to **every** file in `lang/`, reference it with `data-i18n="key"`
 (text), `data-i18n-placeholder="key"` or `t("key")` in JS.
 
@@ -349,7 +373,8 @@ npm run test:unit                    # fast, no browser
   URLs, deep links, the scan self-test, exact decoding of the PNG
   export, every frame × dot shape (one test per frame, also every text size) and every dot shape ×
   corner style × gradient (one test per dot shape), three-colour gradients, eye centre colours,
-  rounded block corners, background patterns, brand palette, generated and cropped logos, logo backgrounds
+  rounded block corners, background patterns, brand palette, generated and cropped logos, confetti
+  palettes, colours from the logo, the round code and shape frames, every gallery template, logo backgrounds
   at every logo size (including large codes with a central alignment pattern), error correction
   levels, quiet zones, transparent exports, saving/opening design files (and hostile ones), password never in SVG/PDF output, logo upload hardening,
   language switch, all print layouts (every QR on the page decoded), `file://` usage and

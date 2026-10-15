@@ -39,8 +39,11 @@ function logoClearTest(logo, qx, qy, cell, n) {
 
 function buildScene(qr, S, o) {
   const k = o.textSizeScale;
+  const quiet = QUIET_ZONE_CHOICES.indexOf(o.quietZone) >= 0 ? o.quietZone : QUIET_ZONE_MODULES;
   const M = {
     S: S,
+    modules: qr.getModuleCount(), // lets a frame (round code) align decorations with the code's grid
+    quiet: quiet,
     fontTitle: S * 0.05 * k,
     fontCaption: S * 0.04 * k,
     bandH: function(font) { return font * 2.3; }
@@ -77,7 +80,6 @@ function buildScene(qr, S, o) {
   items.push.apply(items, r.back);
 
   // QR block: its background covers the full quiet zone, so no decoration can intrude on it.
-  const quiet = QUIET_ZONE_CHOICES.indexOf(o.quietZone) >= 0 ? o.quietZone : QUIET_ZONE_MODULES;
   const modCount = qr.getModuleCount();
   const cell = block.size / (modCount + quiet * 2);
   const qx = block.x + cell * quiet;
@@ -105,7 +107,16 @@ function buildScene(qr, S, o) {
   };
   const moduleShape = MODULE_SHAPES[o.qrShape] || MODULE_SHAPES.square;
   const paint = qrPaint(o, qx, qy, cell * modCount);
-  items.push({ type: "path", d: moduleShape.pathD(isData, modCount, qx, qy, cell), fill: paint });
+  const palette = Object.prototype.hasOwnProperty.call(CONFETTI_PALETTES, o.moduleColors) ? CONFETTI_PALETTES[o.moduleColors] : null;
+  if (palette) {
+    // One path per colour; every module belongs to exactly one group.
+    palette.forEach(function(color, k) {
+      const inGroup = function(row, col) { return isData(row, col) && confettiIndex(row, col, palette.length) === k; };
+      items.push({ type: "path", d: moduleShape.pathD(inGroup, modCount, qx, qy, cell), fill: color });
+    });
+  } else {
+    items.push({ type: "path", d: moduleShape.pathD(isData, modCount, qx, qy, cell), fill: paint });
+  }
   if (o.eyeBallColor) {
     const eyes = eyePartsD(modCount, qx, qy, cell, o.eyeStyle);
     items.push({ type: "path", d: eyes.frames, fill: o.eyeColor || paint, fillRule: "evenodd" });

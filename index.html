@@ -255,6 +255,16 @@
 <div class="is-hidden notice" id="typeWarning" role="status"></div>
 <div class="is-hidden notice notice-error" id="formError" role="alert"></div>
 
+<details id="templateSection">
+<summary data-i18n="templatesTitle">Mallar</summary>
+<div class="details-body">
+<p class="hint" id="templatesHint" data-i18n="templatesHint">Färdiga utseenden med ram, former, färger och förslag på text. Innehållet ändras aldrig, och du kan justera allt efteråt.</p>
+<div class="template-grid" id="templateGrid" role="group" aria-labelledby="templatesCaption" aria-describedby="templatesHint"></div>
+<span class="visually-hidden" id="templatesCaption" data-i18n="templatesTitle">Mallar</span>
+<div class="is-hidden notice" id="templateStatus" role="status"></div>
+</div>
+</details>
+
 <details>
 <summary data-i18n="qrStyleTitle">QR-kodstil</summary>
 <div class="details-body">
@@ -306,6 +316,17 @@
     </div>
   </div>
 </div>
+
+<label for="moduleColors" data-i18n="moduleColorsLabel">Färg på punkterna</label>
+<select id="moduleColors" aria-describedby="confettiHint">
+  <option value="single" selected data-i18n="moduleColorsSingle">QR-färgen (och övergången)</option>
+  <option value="rainbow" data-i18n="confettiRainbow">Konfetti – regnbåge</option>
+  <option value="ocean" data-i18n="confettiOcean">Konfetti – hav</option>
+  <option value="forest" data-i18n="confettiForest">Konfetti – skog</option>
+  <option value="sunset" data-i18n="confettiSunset">Konfetti – solnedgång</option>
+  <option value="berry" data-i18n="confettiBerry">Konfetti – bär</option>
+</select>
+<p class="is-hidden hint" id="confettiHint" data-i18n="confettiHint">Punkterna får färger ur paletten. Hörnen behåller QR-färgen eller sin egen färg. Färgerna är mörka nog för en ljus bakgrund.</p>
 
 <label for="gradient" data-i18n="gradientLabel">Färgövergång</label>
 <select id="gradient">
@@ -467,6 +488,9 @@
   <label for="logoSize" data-i18n="logoSizeLabel">Logotypens storlek</label>
   <input type="range" id="logoSize" min="10" max="30" value="20" aria-valuetext="20 %">
 
+  <button type="button" class="small-btn is-hidden" id="logoColors" aria-describedby="logoColorsStatus" data-i18n="logoColorsBtn">Färger från logotypen</button>
+  <div class="is-hidden notice" id="logoColorsStatus" role="status"></div>
+
   <label for="logoShape" data-i18n="logoShapeLabel">Logotypens form</label>
   <select id="logoShape">
     <option value="original" selected data-i18n="logoShapeOriginal">Som bilden</option>
@@ -523,6 +547,14 @@
   <option value="arrow" data-i18n="frameArrow">Pil mot koden</option>
   <option value="elevated" data-i18n="frameElevated">Upphöjt kort (med skugga)</option>
   <option value="badge" data-i18n="frameBadge">Rund badge (text längs kanten)</option>
+  <option value="roundCode" data-i18n="frameRoundCode">Rund kod (med dekorpunkter)</option>
+  <option value="heart" data-i18n="frameHeart">Hjärta</option>
+  <option value="house" data-i18n="frameHouse">Hus</option>
+  <option value="cup" data-i18n="frameCup">Kaffekopp</option>
+  <option value="gift" data-i18n="frameGift">Presentask</option>
+  <option value="shield" data-i18n="frameShield">Sköld</option>
+  <option value="paw" data-i18n="framePaw">Tass</option>
+  <option value="cloud" data-i18n="frameCloud">Moln</option>
   <option value="calendar" data-i18n="frameCalendar">Kalenderblad</option>
   <option value="mapPin" data-i18n="frameMapPin">Kartnål</option>
   <option value="envelope" data-i18n="frameEnvelope">Kuvert</option>
@@ -837,6 +869,7 @@
 <script src="js/app.js"></script>
 <script src="js/print-layouts.js"></script>
 <script src="js/ui/design-file.js"></script>
+<script src="js/ui/template-gallery.js"></script>
 
 </body>
 </html>

@@ -214,6 +214,114 @@ function frameText(tx, o, text, cx, cy, basePx, maxWidth, bold, bg, icon) {
   return text ? tx({ text: text, cx: cx, cy: cy, basePx: basePx, maxWidth: maxWidth, bold: bold, bg: bg, icon: icon }) : [];
 }
 
+// Round code: block size (share of the disc's diameter) and how many decoy cells are filled.
+const ROUND_CODE_BLOCK = 0.6;
+const ROUND_CODE_DENSITY = 0.45;
+// Paper margin round the code inside a shape frame, in silhouette units (every shape leaves room).
+const SILHOUETTE_SHEET = 2;
+
+/* ---- Shape frames ---------------------------------------------------------- */
+
+// Silhouettes drawn in a box 100 units wide. `inner` is the square (x, y, size) where the QR
+// block goes; it lies inside the outline with a margin (checked by an e2e test with
+// isPointInPath), so the code itself is never shaped — only its surroundings.
+function scaledPath(d, k, dy) {
+  // Scales every number pair in an absolute path (M, L, H, V, C, Q, A are written by hand below).
+  return d.split(/(?=[A-Za-z])/).map(function(seg) {
+    const cmd = seg.charAt(0);
+    const nums = seg.slice(1).trim().split(/[\s,]+/).filter(Boolean).map(Number);
+    if (cmd === "Z" || cmd === "z") return "Z";
+    if (cmd === "H") return "H" + f(nums[0] * k);
+    if (cmd === "V") return "V" + f(nums[0] * k + dy);
+    if (cmd === "A") {
+      return "A" + f(nums[0] * k) + " " + f(nums[1] * k) + " " + nums[2] + " " + nums[3] + " " + nums[4] + " " + f(nums[5] * k) + " " + f(nums[6] * k + dy);
+    }
+    return cmd + nums.map(function(v, i) { return f(i % 2 ? v * k + dy : v * k); }).join(" ");
+  }).join("");
+}
+
+function circleUnits(cx, cy, r) {
+  return "M" + (cx - r) + " " + cy + "A" + r + " " + r + " 0 1 1 " + (cx + r) + " " + cy + "A" + r + " " + r + " 0 1 1 " + (cx - r) + " " + cy + "Z";
+}
+
+const SILHOUETTES = {
+  heart: {
+    h: 98, inner: [24, 16, 52],
+    d: "M50 98C22 78 0 60 0 32C0 13 13 0 29 0C39 0 46 5 50 12C54 5 61 0 71 0C87 0 100 13 100 32C100 60 78 78 50 98Z"
+  },
+  house: {
+    h: 112, inner: [18, 42, 64],
+    d: "M50 0L100 40H92V112H8V40H0Z",
+    extra: function(k, dy, color) { return [{ type: "path", fill: color, d: scaledPath("M70 6H82V28L70 18Z", k, dy) }]; }
+  },
+  cup: {
+    h: 104, inner: [8, 27, 60],
+    d: "M0 20H76V82C76 94 68 104 56 104H20C8 104 0 94 0 82Z",
+    extra: function(k, dy, color) {
+      return [{ type: "path", fill: color, fillRule: "evenodd", d: scaledPath(circleUnits(80, 54, 18) + circleUnits(80, 54, 9), k, dy) },
+        { type: "path", stroke: color, lineWidth: 3.2 * k, cap: "round", d: scaledPath("M22 14C18 10 26 6 22 2M38 14C34 10 42 6 38 2M54 14C50 10 58 6 54 2", k, dy) }];
+    }
+  },
+  gift: {
+    h: 112, inner: [18, 42, 64],
+    d: "M0 22H100V38H94V112H6V38H0Z",
+    extra: function(k, dy, color) {
+      const dark = shadeHex(color, relativeLuminance(color) > 0.5 ? -0.3 : 0.3);
+      return [
+        { type: "path", fill: dark, d: scaledPath("M44 22H56V38H44Z", k, dy) },
+        { type: "path", fill: color, fillRule: "evenodd", d: scaledPath(circleUnits(38, 13, 11) + circleUnits(38, 13, 5) + circleUnits(62, 13, 11) + circleUnits(62, 13, 5), k, dy) },
+        { type: "path", fill: dark, d: scaledPath(circleUnits(50, 16, 6), k, dy) }
+      ];
+    }
+  },
+  shield: {
+    h: 112, inner: [17, 11, 66],
+    d: "M0 6Q50 -6 100 6V50C100 80 74 100 50 112C26 100 0 80 0 50Z"
+  },
+  paw: {
+    h: 112, inner: [23, 48, 54],
+    d: "M40 38H60C80 38 92 52 92 72V86C92 100 82 112 68 112H32C18 112 8 100 8 86V72C8 52 20 38 40 38Z",
+    extra: function(k, dy, color) {
+      return [{ type: "path", fill: color, d: scaledPath(circleUnits(14, 30, 10) + circleUnits(35, 13, 11) + circleUnits(65, 13, 11) + circleUnits(86, 30, 10), k, dy) }];
+    }
+  },
+  cloud: {
+    h: 100, inner: [22, 40, 56],
+    d: "M26 36H74C88 36 100 48 100 64V74C100 88 88 100 74 100H26C12 100 0 88 0 74V64C0 48 12 36 26 36Z" +
+      circleUnits(30, 38, 22) + circleUnits(58, 30, 28) + circleUnits(82, 46, 17)
+  }
+};
+
+// A frame built from a silhouette: heading above, the shape with the code on its own paper,
+// caption below.
+function silhouetteTemplate(kind) {
+  return {
+    ownsText: true,
+    blockOnPaper: true,
+    silhouette: kind,
+    build: function(M, o, tx) {
+      const S = M.S;
+      const shape = SILHOUETTES[kind];
+      const titleH = o.title ? M.fontTitle * 2.2 : S * 0.02;
+      const captionH = o.caption ? M.fontCaption * 2.2 : S * 0.02;
+      const k = S / 100;
+      const back = [{ type: "path", d: scaledPath(shape.d, k, titleH), fill: o.frameColor, fillRule: shape.evenodd ? "evenodd" : undefined }];
+      if (shape.extra) back.push.apply(back, shape.extra(k, titleH, o.frameColor));
+      const inner = shape.inner;
+      // White paper just outside the quiet zone: a coloured area right against the code made
+      // jsQR miss codes at some sizes (as with the chalkboard).
+      const sheet = SILHOUETTE_SHEET;
+      back.push({ type: "path", d: roundRectD((inner[0] - sheet) * k, titleH + (inner[1] - sheet) * k, (inner[2] + sheet * 2) * k, (inner[2] + sheet * 2) * k, S * 0.02), fill: o.qrBgColor });
+      const front = frameText(tx, o, o.title, S / 2, titleH / 2, M.fontTitle, S * 0.9, true, o.qrBgColor, o.wifiIcon && !o.caption)
+        .concat(frameText(tx, o, o.caption, S / 2, titleH + shape.h * k + captionH / 2, M.fontCaption, S * 0.9, false, o.qrBgColor, o.wifiIcon));
+      // Whole pixels for the block: between pixels jsQR missed these codes far more often
+      // (66 → 2 misses for the house in a 418-case sweep).
+      return { h: titleH + shape.h * k + captionH, block: { x: Math.round(inner[0] * k), y: Math.round(titleH + inner[1] * k), size: Math.round(inner[2] * k), radius: S * 0.015 },
+        back: back, front: front, pageColor: o.qrBgColor };
+    }
+  };
+}
+
 const FRAME_TEMPLATES = {
   none: classicTemplate("none"),
   border: classicTemplate("border"),
@@ -760,6 +868,57 @@ const FRAME_TEMPLATES = {
       return { h: S, block: { x: pos, y: pos, size: B, radius: S * 0.02 }, back: back, front: front, pageColor: null };
     }
   },
+
+
+  // Round code: the square code in the middle of a disc filled with decoy dots in the same dot
+  // shape (frame colour), always outside the quiet zone and on the code's own grid.
+  roundCode: {
+    ownsText: true,
+    build: function(M, o, tx) {
+      const S = M.S;
+      const titleH = o.title ? M.fontTitle * 2.2 : 0;
+      const captionH = o.caption ? M.fontCaption * 2.2 : S * 0.02;
+      const R = S / 2, cx = R, cy = titleH + R;
+      const lw = Math.max(2, S * 0.01);
+      // Whole pixels for the block (see silhouetteTemplate); the decoys use the same grid.
+      const B = Math.round(S * ROUND_CODE_BLOCK);
+      const bx = Math.round(cx - B / 2), by = Math.round(cy - B / 2);
+      const n = M.modules, q = M.quiet;
+      const cell = B / (n + q * 2);
+      const qx = bx + q * cell, qy = by + q * cell;
+      // The decoy grid extends the code's grid in every direction.
+      const off = Math.ceil((qx + cell) / cell);
+      const N = n + off * 2;
+      const x0 = qx - off * cell, y0 = qy - off * cell;
+      const limit = R - lw * 2 - cell * 0.75;
+      const isDecoy = function(r, c) {
+        if (r < 0 || c < 0 || r >= N || c >= N) return false;
+        const i = c - off, j = r - off;
+        // Never inside the block (code + quiet zone), with one more cell of space: some dot
+        // shapes (hearts, stars) are drawn larger than their cell.
+        if (i >= -q - 1 && i < n + q + 1 && j >= -q - 1 && j < n + q + 1) return false;
+        const dx = x0 + (c + 0.5) * cell - cx, dy = y0 + (r + 0.5) * cell - cy;
+        if (dx * dx + dy * dy > limit * limit) return false;
+        return moduleNoise(j + 977, i + 977) < ROUND_CODE_DENSITY;
+      };
+      const shape = MODULE_SHAPES[o.qrShape] || MODULE_SHAPES.square;
+      const back = [
+        { type: "path", d: circleD(cx, cy, R - lw / 2), stroke: o.frameColor, lineWidth: lw },
+        { type: "path", d: shape.pathD(isDecoy, N, x0, y0, cell), fill: o.frameColor }
+      ];
+      const front = frameText(tx, o, o.title, S / 2, titleH / 2, M.fontTitle, S * 0.9, true, o.qrBgColor, o.wifiIcon && !o.caption)
+        .concat(frameText(tx, o, o.caption, S / 2, titleH + S + captionH / 2, M.fontCaption, S * 0.9, false, o.qrBgColor, o.wifiIcon));
+      return { h: titleH + S + captionH, block: { x: bx, y: by, size: B }, back: back, front: front, pageColor: o.qrBgColor };
+    }
+  },
+
+  heart: silhouetteTemplate("heart"),
+  house: silhouetteTemplate("house"),
+  cup: silhouetteTemplate("cup"),
+  gift: silhouetteTemplate("gift"),
+  shield: silhouetteTemplate("shield"),
+  paw: silhouetteTemplate("paw"),
+  cloud: silhouetteTemplate("cloud"),
 
   /* ---- Frames that match a content type (suggested in the UI, FRAME_SUGGESTIONS in app.js) ---- */
 

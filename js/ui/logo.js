@@ -248,8 +248,10 @@ function updateGeneratedLogo() {
     if (logoGenerated) { clearLogo(); updatePreview(); }
     return;
   }
-  useDecodedLogo(buildGeneratedLogo(initials, icon));
+  // Marked before useDecodedLogo(), which redraws the preview: everything that runs on that redraw
+  // must already know the logo is generated.
   logoGenerated = true;
+  useDecodedLogo(buildGeneratedLogo(initials, icon));
   $("#designLogoWrap").hide();
 }
 
@@ -263,3 +265,25 @@ $("#logoIcon").on("change", function() {
 });
 // The generated disc follows the code colour.
 $("#qrColor").on("change", function() { if (logoGenerated) updateGeneratedLogo(); });
+
+/* ---- Colours from the logo ---------------------------------------------- */
+
+// Reads the uploaded logo's pixels (it is already a clean, re-encoded PNG) and applies the code
+// and frame colours that pickLogoColors() suggests. Nothing leaves the browser.
+$("#logoColors").on("click", function() {
+  if (!logoImage || logoGenerated) return;
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(logoImage, 0, 0, 64, 64);
+  const picked = pickLogoColors(ctx.getImageData(0, 0, 64, 64).data, $("#qrBgColor").val());
+  if (!picked) { showMessage("#logoColorsStatus", "logoColorsNone"); return; }
+  $("#qrColor").val(picked.qr).trigger("change");
+  $("#frameColor").val(picked.accent).trigger("change");
+  showMessage("#logoColorsStatus", "logoColorsDone");
+});
+
+// Only an uploaded image has colours to pick from.
+$(document).on("preview:rendered", function() {
+  $("#logoColors").toggle(Boolean(logoImage) && !logoGenerated);
+});

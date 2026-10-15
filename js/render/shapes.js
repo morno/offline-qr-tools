@@ -134,6 +134,8 @@ const STAR_SCALE = 0.86;
 const STAR_INNER = 0.5;
 const DROP_RADIUS = 0.5;
 const MOSAIC_SIZES = [0.86, 0.94, 1];
+const SKETCH_JITTER = 0.09; // how far each corner of a hand-drawn module may move, in modules
+const SKETCH_GROW = 0.04;   // drawn slightly larger, so the jitter never leaves gaps that read as light
 
 const MODULE_SHAPES = {
   square: {
@@ -356,6 +358,21 @@ const MODULE_SHAPES = {
       return d;
     }
   },
+  // Hand-drawn look: every corner of every module is nudged by a fixed hash (never random), so
+  // the same code always looks the same.
+  sketch: {
+    labelKey: "shapeSketch",
+    pathD: function(isDark, n, x0, y0, cell) {
+      const j = cell * SKETCH_JITTER, g = cell * SKETCH_GROW;
+      let d = "";
+      eachModule(isDark, n, x0, y0, cell, function(r, c, x, y) {
+        const p = function(k, base) { return base + (moduleNoise(r * 4 + k, c * 3 + k) * 2 - 1) * j; };
+        d += "M" + f(p(0, x - g)) + " " + f(p(1, y - g)) + "L" + f(p(2, x + cell + g)) + " " + f(p(3, y - g)) +
+          "L" + f(p(4, x + cell + g)) + " " + f(p(5, y + cell + g)) + "L" + f(p(6, x - g)) + " " + f(p(7, y + cell + g)) + "Z";
+      });
+      return d;
+    }
+  },
   // Squares of slightly different sizes, picked per module by a fixed hash (never random).
   mosaic: {
     labelKey: "shapeMosaic",
@@ -443,6 +460,22 @@ const EYE_STYLES = {
 };
 
 const GRADIENT_TYPES = ["none", "vertical", "horizontal", "diagonal", "radial", "angle"];
+
+// Confetti: the data modules are split into groups by a fixed hash and every group gets one colour
+// of the palette. All colours are dark enough for a light background; the contrast warning checks
+// each of them against the chosen background.
+const CONFETTI_PALETTES = {
+  rainbow: ["#b91c1c", "#c2410c", "#a16207", "#15803d", "#1d4ed8", "#7e22ce"],
+  ocean: ["#0c4a6e", "#0369a1", "#0e7490", "#115e59", "#1e3a8a"],
+  forest: ["#14532d", "#166534", "#3f6212", "#365314", "#064e3b"],
+  sunset: ["#9f1239", "#be123c", "#c2410c", "#9a3412", "#7e22ce"],
+  berry: ["#831843", "#9d174d", "#6b21a8", "#581c87", "#be185d"]
+};
+
+// Which palette colour a module gets (0 … count-1).
+function confettiIndex(row, col, count) {
+  return Math.floor(moduleNoise(row + 131, col + 71) * count);
+}
 
 // Subtle patterns for the page around the QR block (never inside it: the block and its quiet
 // zone are painted on top). Step = pattern spacing in pixels.

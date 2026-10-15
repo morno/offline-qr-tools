@@ -7,6 +7,15 @@ All notable changes are listed here. The format follows
 ## [Unreleased]
 
 ### Added
+- Template gallery: 17 ready-made looks (café, restaurant, hotel, office, gym, beauty, estate agent,
+  shop, event, wedding, modern round, Christmas, Lucia, Easter, Midsummer, Halloween, Valentine's
+  Day). A template never changes the content; its suggested texts only fill empty fields.
+- Round code: the code in the middle of a disc of decoy dots in the same dot shape.
+- Shape frames: heart, house, coffee cup, gift box, shield, paw and cloud, around an intact code.
+- Confetti colours: the dots take colours from a palette (rainbow, ocean, forest, sunset, berry).
+- Hand-drawn dot shape.
+- "Colours from the logo": one click picks a readable code colour and a frame colour from the
+  uploaded logo.
 - Dot shapes: liquid (inside corners rounded too), classy rounded, beads, squircles, stars, drops
   and mosaic. Corner styles: squircle, cut corners, extra rounded and drop.
 - Colours: an optional third colour in the middle of a gradient, a separate colour for the corner
