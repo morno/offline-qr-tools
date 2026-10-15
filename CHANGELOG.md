@@ -45,6 +45,8 @@ All notable changes are listed here. The format follows
   uses it).
 - Swedish texts: "Utseenden som Swish rekommenderar", "Swishs riktlinjer", and the dot shape
   "Elegant (bladhörn)" no longer has the same name as the "Klassisk" quick style.
+- After choosing the Polaroid frame, other frames were drawn white on white and seemed to
+  disappear; the automatic white paper colour is now undone when you switch away.
 
 ### Changed
 - The release zip is reproducible: the same commit always gives the same file and checksum.

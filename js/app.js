@@ -152,10 +152,34 @@ $("[data-preset]").on("click", function() {
   updatePreview();
 });
 
-// Polaroid paper looks wrong in the default near-black; switch to white once if untouched.
+// Polaroid paper looks wrong in the default near-black, so it switches to white if the colour
+// is untouched. Leaving Polaroid undoes that switch unless the user has picked a colour since;
+// otherwise lines, brackets and cards are drawn white on white and seem to disappear.
+const DEFAULT_FRAME_COLOR = "#1a1a1a";
+let polaroidAutoColor = false;
+let settingFrameColor = false;
+
+function setFrameColorAuto(value) {
+  settingFrameColor = true;
+  $("#frameColor").val(value).trigger("change");
+  settingFrameColor = false;
+}
+
+// Any colour change we did not make ourselves (picker, hex field, design file) is the user's choice.
+$("#frameColor").on("input change", function() {
+  if (!settingFrameColor) polaroidAutoColor = false;
+});
+
 $("#frameStyle").on("change", function() {
-  if ($(this).val() === "polaroid" && $("#frameColor").val() === "#1a1a1a") {
-    $("#frameColor").val("#ffffff").trigger("change");
+  const color = String($("#frameColor").val()).toLowerCase();
+  if ($(this).val() === "polaroid") {
+    if (color === DEFAULT_FRAME_COLOR) {
+      polaroidAutoColor = true;
+      setFrameColorAuto("#ffffff");
+    }
+  } else if (polaroidAutoColor) {
+    polaroidAutoColor = false;
+    setFrameColorAuto(DEFAULT_FRAME_COLOR);
   }
 });
 
