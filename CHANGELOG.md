@@ -6,6 +6,10 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Frame style "Ticket": a header for the heading, notched sides with a perforation, and the
+  caption on the tear-off stub. Works on a transparent background.
+
 ### Fixed
 - Short codes with a logo (e.g. a one-word text) could not be scanned; with a logo a code is now
   at least version 3, and the format information next to the corners is never covered.

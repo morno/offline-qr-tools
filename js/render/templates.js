@@ -41,6 +41,22 @@ function stampPathD(x0, y0, x1, y1, r) {
   return d;
 }
 
+// Ticket outline (0, 0)–(w, h): rounded corners of radius r and a semicircular notch of
+// radius nr on each side at the perforation height ny. Like the stamp, the notches are cut
+// out of the outline instead of painted over, so the ticket also works on a transparent
+// background. The outline runs clockwise: corners use sweep 1 (bulge out), notches sweep 0
+// (bend into the paper).
+function ticketPathD(w, h, r, ny, nr) {
+  const corner = function(ex, ey) { return "A" + f(r) + " " + f(r) + " 0 0 1 " + f(ex) + " " + f(ey); };
+  const notch = function(ex, ey) { return "A" + f(nr) + " " + f(nr) + " 0 0 0 " + f(ex) + " " + f(ey); };
+  return "M" + f(r) + " 0H" + f(w - r) + corner(w, r) +
+    "V" + f(ny - nr) + notch(w, ny + nr) +
+    "V" + f(h - r) + corner(w - r, h) +
+    "H" + f(r) + corner(0, h - r) +
+    "V" + f(ny + nr) + notch(0, ny - nr) +
+    "V" + f(r) + corner(r, 0) + "Z";
+}
+
 // Classic layouts: optional frame line + text as plain lines or colored plates.
 function classicTemplate(kind) {
   return {
@@ -199,6 +215,39 @@ const FRAME_TEMPLATES = {
         front.push.apply(front, tx({ text: o.caption, cx: S / 2, cy: headH + B + footH / 2, basePx: M.fontCaption, maxWidth: S - edge * 3, bold: true, bg: o.frameColor, icon: o.wifiIcon }));
       }
       return { h: h, block: { x: edge, y: headH, size: B, radius: S * 0.03 }, back: back, front: front, pageColor: null };
+    }
+  },
+
+  // Admission ticket: title in the header, the code, a perforation with a notch on each side,
+  // and the caption on the stub below it. Suits events, guest networks and vouchers.
+  ticket: {
+    ownsText: true,
+    blockOnPaper: true,
+    build: function(M, o, tx) {
+      const S = M.S;
+      const edge = S * 0.06;
+      // Smaller than edge, so a notch (horizontally and vertically) never reaches the QR block.
+      const notchR = S * 0.04;
+      const B = S - edge * 2;
+      const headH = o.title ? M.bandH(M.fontTitle) : edge;
+      const perfY = headH + B + edge;
+      const stubH = Math.max(M.bandH(M.fontCaption), notchR * 3);
+      const h = perfY + stubH;
+      // The perforation must stay visible on any paper colour: darken light paper, lighten dark.
+      const perfColor = shadeHex(o.frameColor, relativeLuminance(o.frameColor) > 0.5 ? -0.35 : 0.45);
+      const lw = Math.max(1.5, S * 0.006);
+      const back = [
+        { type: "path", d: ticketPathD(S, h, S * 0.04, perfY, notchR), fill: o.frameColor },
+        { type: "path", d: "M" + f(notchR + lw * 3) + " " + f(perfY) + "H" + f(S - notchR - lw * 3),
+          stroke: perfColor, lineWidth: lw, dash: [lw * 3, lw * 2.5] }
+      ];
+      const front = [];
+      if (o.title) {
+        front.push.apply(front, tx({ text: o.title, cx: S / 2, cy: headH / 2, basePx: M.fontTitle, maxWidth: S - edge * 3, bold: true, bg: o.frameColor, icon: o.wifiIcon && !o.caption }));
+      }
+      // The stub is part of the ticket's look, so it is never left empty.
+      front.push.apply(front, tx({ text: o.caption || t("scanMe"), cx: S / 2, cy: perfY + stubH / 2, basePx: M.fontCaption, maxWidth: S - notchR * 2 - edge * 2, bold: true, bg: o.frameColor, icon: o.wifiIcon }));
+      return { h: h, block: { x: edge, y: headH, size: B, radius: S * 0.02 }, back: back, front: front, pageColor: null };
     }
   },
 

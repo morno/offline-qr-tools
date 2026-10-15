@@ -167,6 +167,7 @@ I18N.en = {
   frameDouble: "Double frame",
   frameBrackets: "Viewfinder corners (like a camera)",
   frameCard: "Card (colored frame with text)",
+  frameTicket: "Ticket (with a tear-off stub)",
   frameRibbon: "Ribbon below the QR code",
   framePolaroid: "Polaroid photo (text on the bottom edge)",
   frameStamp: "Postage stamp",

@@ -62,7 +62,7 @@ js/core/password.js         PURE: generateWifiPassword(randomBytes) — the UI p
 js/core/design.js           PURE: design files — DESIGN_FIELDS, buildDesign(), parseDesignFile()
 js/render/scene.js          Scene primitives, text fitting (needs a canvas)
 js/render/shapes.js         PURE: MODULE_SHAPES, EYE_STYLES, GRADIENT_TYPES, qrPaint()
-js/render/templates.js      FRAME_TEMPLATES (none, border, rounded, dashed, double, brackets, card, polaroid, stamp, ribbon, bubble)
+js/render/templates.js      FRAME_TEMPLATES (none, border, rounded, dashed, double, brackets, card, ticket, polaroid, stamp, ribbon, bubble)
 js/render/renderer.js       buildScene(), sceneToCanvas(), sceneToSVG()
 js/ui/state.js              Shared mutable UI state (currentQR, currentPayload, …)
 js/ui/i18n.js               t(), applyI18n(), language picker
@@ -150,7 +150,7 @@ too few data modules, and short payloads with a logo did not scan.
 
 Transparent export (`opts.transparent`, PNG/SVG downloads only, never preview or PDF): the page
 background and the QR background are left out, except when the template sets
-`blockOnPaper: true` (card, polaroid, stamp) — there the QR keeps its background on the paper.
+`blockOnPaper: true` (card, ticket, polaroid, stamp) — there the QR keeps its background on the paper.
 The background colour then only feeds the contrast checks, so the preview and the scan
 self-test show the code on the surface the user said it will be placed on.
 
@@ -195,7 +195,8 @@ is applied: a file with a bad logo changes nothing (`errDesignLogo`). Bump
 
 ### Frame templates (`FRAME_TEMPLATES` in `js/render/templates.js`)
 `none`, `border`, `rounded`, `dashed`, `double`, `brackets` (viewfinder corners), `card`,
-`polaroid`, `stamp` (perforated edges), `ribbon`, `bubble`. Each has
+`ticket` (notched sides, perforation, caption on the stub), `polaroid`, `stamp` (perforated
+edges), `ribbon`, `bubble`. Each has
 `build(M, o, tx)` → `{ h, block, back, front, pageColor }`. `ownsText: true` means the template
 decides where text goes.
 

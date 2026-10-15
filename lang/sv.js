@@ -167,6 +167,7 @@ I18N.sv = {
   frameDouble: "Dubbel ram",
   frameBrackets: "Sökarhörn (som en kamera)",
   frameCard: "Kort (färgad ram med text)",
+  frameTicket: "Biljett (med avrivningsdel)",
   frameRibbon: "Banderoll under QR-koden",
   framePolaroid: "Polaroidfoto (text på nedre kanten)",
   frameStamp: "Frimärke",
