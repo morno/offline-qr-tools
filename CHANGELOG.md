@@ -7,6 +7,19 @@ All notable changes are listed here. The format follows
 ## [Unreleased]
 
 ### Added
+- Dot shapes: liquid (inside corners rounded too), classy rounded, beads, squircles, stars, drops
+  and mosaic. Corner styles: squircle, cut corners, extra rounded and drop.
+- Colours: an optional third colour in the middle of a gradient, a separate colour for the corner
+  centres, rounded corners on the code area, subtle background patterns (dots, stripes, grid,
+  checks) around the code, and brand colours: save colours with "+" in any colour picker; they
+  are shown first in every picker and saved in the design file.
+- Frames: outline with the text in the line, hang tag, corner band, awning, chalkboard, ribbons
+  above and below, split card (with a second frame colour), tab, arrow, raised card and round
+  badge with curved text, plus calendar page, map pin, envelope, phone, business card and Wi-Fi
+  symbol. A frame that matches the content type is offered with one click.
+- Logo: crop round or with rounded corners, with an optional ring in the code colour; or use
+  initials or a built-in icon (Wi-Fi, phone, envelope, map pin, calendar, coffee cup, heart,
+  star) instead of an image. Initials are never saved in design files.
 - Frame style "Ticket": a header for the heading, notched sides with a perforation, and the
   caption on the tear-off stub. Works on a transparent background.
 

@@ -32,6 +32,7 @@ function readDesignControls() {
     if (kind === "bool") values[key] = el.is(":checked");
     else if (kind === "int") values[key] = parseInt(el.val(), 10);
     else if (kind === "hex") values[key] = sanitizeHex(el.val(), "#000000");
+    else if (kind === "hexList") values[key] = readBrandPalette();
     else values[key] = String(el.val());
   });
   return values;
@@ -44,6 +45,7 @@ function applyDesignControls(style) {
     if (!Object.prototype.hasOwnProperty.call(style, key)) return;
     const el = $("#" + key);
     if (DESIGN_FIELDS[key].kind === "bool") el.prop("checked", style[key]);
+    else if (DESIGN_FIELDS[key].kind === "hexList") el.val(style[key].join(","));
     else el.val(String(style[key]));
     el.trigger("change");
   });
@@ -57,12 +59,14 @@ function base64ToArrayBuffer(b64) {
 }
 
 function updateDesignLogoOption() {
-  $("#designLogoWrap").toggle(Boolean(logoDataUrl));
+  // Generated logos (initials, icons) are not saved as images: the icon is a style field, and
+  // initials are text, which design files never contain.
+  $("#designLogoWrap").toggle(Boolean(logoDataUrl) && !logoGenerated);
 }
 $(document).on("preview:rendered", updateDesignLogoOption);
 
 $("#saveDesign").on("click", function() {
-  const includeLogo = Boolean(logoDataUrl) && $("#designIncludeLogo").is(":checked");
+  const includeLogo = Boolean(logoDataUrl) && !logoGenerated && $("#designIncludeLogo").is(":checked");
   const design = buildDesign(readDesignControls(), includeLogo ? logoDataUrl : null);
   const url = URL.createObjectURL(new Blob([JSON.stringify(design, null, 2)], { type: "application/json" }));
   triggerDownload(url, DESIGN_FILE_NAME);

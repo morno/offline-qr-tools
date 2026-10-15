@@ -14,7 +14,7 @@ const DESIGN_FIELDS = get("DESIGN_FIELDS");
 const langFiles = fs.readdirSync(path.join(ROOT, "lang")).filter((f) => f.endsWith(".js"));
 const I18N = loadScripts(langFiles.map((f) => "lang/" + f))("I18N");
 
-const ENUMS = { qrShape: ["square", "dots"], eyeStyle: ["square", "circle"], frameStyle: ["none", "card"], gradient: ["none", "angle"],
+const ENUMS = { qrShape: ["square", "dots"], eyeStyle: ["square", "circle"], qrCornerRadius: ["0", "1", "2"], bgPattern: ["none", "dots"], frameStyle: ["none", "card"], gradient: ["none", "angle"],
   logoBackground: ["clear", "plate", "none"], textStyle: ["none", "plain", "banner"], textSize: ["0.8", "1.2"], ecLevel: ["auto", "H"], quietZone: ["2", "4", "6"] };
 const PNG_1PX = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
@@ -91,5 +91,15 @@ test("design code never reads content fields (static check)", () => {
     for (const id of ["#pswd", "#ssid", "#identity", "#titleText", "#captionText", "currentPayload", "currentSummary", "localStorage"]) {
       assert.ok(!src.includes(id), `${file} must not use ${id}`);
     }
+  }
+});
+
+test("brand palette: a short list of distinct colours, anything else is skipped", () => {
+  const ok = parseDesignFile(file({ brandPalette: ["#112233", "#AABBCC", "#112233"] }), ENUMS);
+  assert.deepEqual(plain(ok.style), { brandPalette: ["#112233", "#aabbcc"] });
+  for (const bad of ["#112233", ["red"], ["#112233", "#11223"], ["#112233\" onload=\"x"], Array(9).fill("#000000"), [{}], { 0: "#000000" }]) {
+    const r = parseDesignFile(file({ brandPalette: bad }), ENUMS);
+    assert.deepEqual(plain(r.style), {}, JSON.stringify(bad));
+    assert.equal(r.skipped, 1, JSON.stringify(bad));
   }
 });

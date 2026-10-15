@@ -337,6 +337,26 @@
     </div>
 </div>
 
+<label class="inline-check is-hidden" id="useGradientColor3Wrap">
+  <input type="checkbox" id="useGradientColor3">
+  <span data-i18n="useGradientColor3Label">Tredje färg i mitten av övergången</span>
+</label>
+
+<div class="is-hidden" id="gradientColor3Wrap">
+    <span class="field-label" id="gradientColor3Caption" data-i18n="gradientColor3Label">Mittfärg</span>
+    <div class="color-picker" id="gradientColor3Picker">
+      <button type="button" class="color-swatch-btn" id="gradientColor3Swatch"></button>
+      <input type="hidden" id="gradientColor3" value="#e11d48">
+      <div class="color-popover" id="gradientColor3Popover" role="group" aria-labelledby="gradientColor3Caption">
+        <div class="swatch-grid" id="gradientColor3Grid"></div>
+        <div class="hex-input-row">
+          <span class="hex-prefix" aria-hidden="true">#</span>
+          <input type="text" id="gradientColor3Hex" maxlength="6" placeholder="e11d48" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+    </div>
+</div>
+
 <label class="inline-check">
   <input type="checkbox" id="customEyeColor">
   <span data-i18n="customEyeColorLabel">Egen färg på hörnen</span>
@@ -356,6 +376,48 @@
       </div>
     </div>
 </div>
+
+<label class="inline-check">
+  <input type="checkbox" id="customEyeBallColor">
+  <span data-i18n="customEyeBallColorLabel">Egen färg på hörnens mitt</span>
+</label>
+
+<div class="is-hidden" id="eyeBallColorWrap">
+    <span class="field-label" id="eyeBallColorCaption" data-i18n="eyeBallColorLabel">Färg på hörnens mitt</span>
+    <div class="color-picker" id="eyeBallColorPicker">
+      <button type="button" class="color-swatch-btn" id="eyeBallColorSwatch"></button>
+      <input type="hidden" id="eyeBallColor" value="#0f172a">
+      <div class="color-popover" id="eyeBallColorPopover" role="group" aria-labelledby="eyeBallColorCaption">
+        <div class="swatch-grid" id="eyeBallColorGrid"></div>
+        <div class="hex-input-row">
+          <span class="hex-prefix" aria-hidden="true">#</span>
+          <input type="text" id="eyeBallColorHex" maxlength="6" placeholder="0f172a" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+    </div>
+</div>
+
+<div class="row">
+  <div>
+    <label for="qrCornerRadius" data-i18n="qrCornerRadiusLabel">Hörn på kodytan</label>
+    <select id="qrCornerRadius" aria-describedby="qrCornerRadiusHint">
+      <option value="0" selected data-i18n="qrCornerSharp">Raka</option>
+      <option value="1" data-i18n="qrCornerSmall">Lätt rundade</option>
+      <option value="2" data-i18n="qrCornerLarge">Rundade</option>
+    </select>
+  </div>
+  <div>
+    <label for="bgPattern" data-i18n="bgPatternLabel">Mönster runt koden</label>
+    <select id="bgPattern" aria-describedby="qrCornerRadiusHint">
+      <option value="none" selected data-i18n="patternNone">Inget</option>
+      <option value="dots" data-i18n="patternDots">Prickar</option>
+      <option value="stripes" data-i18n="patternStripes">Ränder</option>
+      <option value="grid" data-i18n="patternGrid">Rutnät</option>
+      <option value="checks" data-i18n="patternChecks">Schack</option>
+    </select>
+  </div>
+</div>
+<p class="hint" id="qrCornerRadiusHint" data-i18n="qrCornerRadiusHint">Syns där bakgrunden skiljer sig från kodytan, t.ex. med mönster, ram eller genomskinlig bakgrund. Kodytan och marginalen runt den lämnas alltid fria.</p>
 
 <div class="is-hidden notice" id="contrastWarning" role="status" data-i18n="contrastWarning">
   Låg kontrast mellan QR-färg och bakgrund kan göra koden svår att skanna.
@@ -379,9 +441,43 @@
 <p class="hint" id="logoHint" data-i18n="logoHint">PNG eller JPEG, max 2 MB.</p>
 <div class="is-hidden notice notice-error" id="logoError" role="alert"></div>
 
+<div class="row">
+  <div>
+    <label for="logoInitials" data-i18n="logoInitialsLabel">Initialer som logotyp</label>
+    <input type="text" id="logoInitials" maxlength="6" autocomplete="off" spellcheck="false" aria-describedby="logoGeneratedHint" data-i18n-placeholder="logoInitialsPlaceholder" placeholder="T.ex. WC">
+  </div>
+  <div>
+    <label for="logoIcon" data-i18n="logoIconLabel">Ikon som logotyp</label>
+    <select id="logoIcon" aria-describedby="logoGeneratedHint">
+      <option value="none" selected data-i18n="none">Ingen</option>
+      <option value="wifi" data-i18n="iconWifi">Wi-Fi</option>
+      <option value="phone" data-i18n="iconPhone">Telefon</option>
+      <option value="envelope" data-i18n="iconEnvelope">Kuvert</option>
+      <option value="pin" data-i18n="iconPin">Kartnål</option>
+      <option value="calendar" data-i18n="iconCalendar">Kalender</option>
+      <option value="cup" data-i18n="iconCup">Kaffekopp</option>
+      <option value="heart" data-i18n="iconHeart">Hjärta</option>
+      <option value="star" data-i18n="iconStar">Stjärna</option>
+    </select>
+  </div>
+</div>
+<p class="hint" id="logoGeneratedHint" data-i18n="logoGeneratedHint">Ritas i QR-färgen, utan någon bild. Initialerna sparas aldrig i designfilen.</p>
+
 <div class="is-hidden" id="logoExtras">
   <label for="logoSize" data-i18n="logoSizeLabel">Logotypens storlek</label>
   <input type="range" id="logoSize" min="10" max="30" value="20" aria-valuetext="20 %">
+
+  <label for="logoShape" data-i18n="logoShapeLabel">Logotypens form</label>
+  <select id="logoShape">
+    <option value="original" selected data-i18n="logoShapeOriginal">Som bilden</option>
+    <option value="circle" data-i18n="logoShapeCircle">Rund</option>
+    <option value="rounded" data-i18n="logoShapeRounded">Rundade hörn</option>
+  </select>
+
+  <label class="inline-check is-hidden" id="logoRingWrap">
+    <input type="checkbox" id="logoRing">
+    <span data-i18n="logoRingLabel">Kantring i QR-färgen</span>
+  </label>
 
   <label for="logoBackground" data-i18n="logoBackgroundLabel">Bakom logotypen</label>
   <select id="logoBackground">
@@ -416,7 +512,25 @@
   <option value="polaroid" data-i18n="framePolaroid">Polaroid</option>
   <option value="stamp" data-i18n="frameStamp">Frimärke</option>
   <option value="bubble" data-i18n="frameBubble">Pratbubbla ("Skanna mig!")</option>
+  <option value="fieldset" data-i18n="frameFieldset">Linje med texten i ramen</option>
+  <option value="hangTag" data-i18n="frameHangTag">Hängetikett (med snöre)</option>
+  <option value="cornerBand" data-i18n="frameCornerBand">Hörnband (kort text på snedden)</option>
+  <option value="awning" data-i18n="frameAwning">Markis (randig, för kaféer)</option>
+  <option value="chalkboard" data-i18n="frameChalkboard">Griffeltavla</option>
+  <option value="doubleRibbon" data-i18n="frameDoubleRibbon">Banderoller över och under</option>
+  <option value="splitCard" data-i18n="frameSplitCard">Delat kort (två färger)</option>
+  <option value="tab" data-i18n="frameTab">Flik med text</option>
+  <option value="arrow" data-i18n="frameArrow">Pil mot koden</option>
+  <option value="elevated" data-i18n="frameElevated">Upphöjt kort (med skugga)</option>
+  <option value="badge" data-i18n="frameBadge">Rund badge (text längs kanten)</option>
+  <option value="calendar" data-i18n="frameCalendar">Kalenderblad</option>
+  <option value="mapPin" data-i18n="frameMapPin">Kartnål</option>
+  <option value="envelope" data-i18n="frameEnvelope">Kuvert</option>
+  <option value="phone" data-i18n="framePhone">Telefon</option>
+  <option value="businessCard" data-i18n="frameBusinessCard">Visitkort (liggande)</option>
+  <option value="wifiSignal" data-i18n="frameWifiSignal">Wi-Fi-symbol överst</option>
 </select>
+<button type="button" class="small-btn is-hidden" id="suggestFrame"></button>
 
 <div id="frameColorWrap">
   <span class="field-label" id="frameColorCaption" data-i18n="frameColorLabel">Ram- och banderollfärg</span>
@@ -428,6 +542,21 @@
       <div class="hex-input-row">
         <span class="hex-prefix" aria-hidden="true">#</span>
         <input type="text" id="frameColorHex" maxlength="6" placeholder="1a1a1a" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="is-hidden" id="frameColor2Wrap">
+  <span class="field-label" id="frameColor2Caption" data-i18n="frameColor2Label">Andra ramfärgen</span>
+  <div class="color-picker" id="frameColor2Picker">
+    <button type="button" class="color-swatch-btn" id="frameColor2Swatch"></button>
+    <input type="hidden" id="frameColor2" value="#0369a1">
+    <div class="color-popover" id="frameColor2Popover" role="group" aria-labelledby="frameColor2Caption">
+      <div class="swatch-grid" id="frameColor2Grid"></div>
+      <div class="hex-input-row">
+        <span class="hex-prefix" aria-hidden="true">#</span>
+        <input type="text" id="frameColor2Hex" maxlength="6" placeholder="0369a1" autocomplete="off" spellcheck="false">
       </div>
     </div>
   </div>
@@ -556,6 +685,13 @@
   <input type="checkbox" id="designIncludeLogo" checked>
   <span data-i18n="designIncludeLogo">Ta med logotypen</span>
 </label>
+
+<input type="hidden" id="brandPalette" value="">
+<div class="brand-palette-row">
+  <span class="field-label" id="brandPaletteCaption" data-i18n="brandPaletteLabel">Varumärkesfärger</span>
+  <span class="hint" id="brandPaletteHint" data-i18n="brandPaletteHint">Spara färger med "+" i en färgväljare. De visas överst i alla färgväljare och sparas i designfilen.</span>
+  <button type="button" class="small-btn is-hidden" id="clearBrandPalette" data-i18n="brandPaletteClear">Töm varumärkesfärgerna</button>
+</div>
 
 <div class="design-row">
   <button type="button" class="file-btn" id="saveDesign" aria-describedby="designHint" data-i18n="saveDesign">Spara design</button>

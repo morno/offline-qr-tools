@@ -16,6 +16,25 @@ const COLOR_PALETTE = [
   "#ea580c", "#e11d48", "#ffffff", "#f3f4f6"
 ];
 
+// Brand palette: up to BRAND_PALETTE_MAX colours (core/design.js) kept in the hidden #brandPalette
+// input as "#rrggbb,#rrggbb". It lives in memory and in design files only, never in storage.
+function readBrandPalette() {
+  return String($("#brandPalette").val() || "").split(",")
+    .map(function(v) { return sanitizeHex(v.trim(), ""); })
+    .filter(function(v, i, list) { return v && list.indexOf(v) === i; })
+    .slice(0, BRAND_PALETTE_MAX);
+}
+
+function writeBrandPalette(list) {
+  $("#brandPalette").val(list.slice(0, BRAND_PALETTE_MAX).join(",")).trigger("change");
+}
+
+function addToBrandPalette(hex) {
+  const list = readBrandPalette().filter(function(v) { return v !== hex; });
+  list.unshift(hex); // newest first; the oldest drops off when the palette is full
+  writeBrandPalette(list);
+}
+
 function setupColorPicker(name) {
   const swatchBtn = $("#" + name + "Swatch");
   const hiddenInput = $("#" + name);
@@ -24,6 +43,9 @@ function setupColorPicker(name) {
   const hexInput = $("#" + name + "Hex");
 
   const caption = $("#" + name + "Caption");
+  const brandGrid = $("<div class='swatch-grid brand-grid'></div>").attr("id", name + "BrandGrid").insertBefore(grid);
+  const addBtn = $("<button type='button' class='small-btn brand-add'>+</button>").attr("id", name + "BrandAdd")
+    .appendTo(hexInput.closest(".hex-input-row"));
   swatchBtn.attr({ "aria-expanded": "false", "aria-controls": name + "Popover" });
 
   function currentHex() {
@@ -37,10 +59,26 @@ function setupColorPicker(name) {
     swatchBtn.attr({ "aria-label": caption.text() + ": #" + hex + ", " + t("pickColor"), "title": "#" + hex });
     hexInput.attr("aria-label", t("hexCodeLabel") + ", " + caption.text());
     if (document.activeElement !== hexInput[0]) hexInput.val(hex);
-    grid.find("button").each(function() {
+    addBtn.attr({ "aria-label": t("brandPaletteAdd") + ", " + caption.text(), "title": t("brandPaletteAdd") });
+    popover.find(".swatch-grid button").each(function() {
       const selected = $(this).attr("data-hex") === hex;
       $(this).toggleClass("selected", selected).attr("aria-pressed", String(selected));
     });
+  }
+
+  // Brand colours first, as a separate row (hidden when the palette is empty).
+  function renderBrandGrid() {
+    brandGrid.empty();
+    readBrandPalette().forEach(function(hex) {
+      const clean = hex.slice(1);
+      $("<button type='button'></button>")
+        .css("background", hex)
+        .attr({ "data-hex": clean, "aria-label": t("brandPaletteLabel") + " " + hex, "title": hex })
+        .on("click", function() { setColor(clean); })
+        .appendTo(brandGrid);
+    });
+    brandGrid.toggle(brandGrid.children().length > 0);
+    refreshUI();
   }
 
   function setColor(hex) {
@@ -78,6 +116,9 @@ function setupColorPicker(name) {
     if (e.key === "Escape") { close(); swatchBtn.trigger("focus"); }
   });
 
+  addBtn.on("click", function() { addToBrandPalette("#" + currentHex()); });
+  $("#brandPalette").on("change", renderBrandGrid);
+
   hexInput.on("input", function() {
     const val = $(this).val().replace("#", "");
     if (isValidHex(val)) setColor(val);
@@ -86,5 +127,5 @@ function setupColorPicker(name) {
   $(document).on("click", close);
   $(document).on("i18n:applied", refreshUI);
 
-  refreshUI();
+  renderBrandGrid();
 }

@@ -249,6 +249,10 @@
     padding: 0;
   }
   .swatch-grid button.selected { box-shadow: 0 0 0 2px var(--text); }
+  .brand-grid { padding-bottom: 10px; border-bottom: 1px solid var(--border-soft); }
+  .hex-input-row .brand-add { flex: none; width: 32px; padding: 4px 0; font-weight: bold; }
+  .brand-palette-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 12px; }
+  .brand-palette-row .hint { flex-basis: 100%; margin: 0; }
   .hex-input-row { display: flex; align-items: center; gap: 8px; }
   .hex-input-row input[type=text] {
     width: 100%;

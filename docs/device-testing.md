@@ -52,6 +52,12 @@ Use the Wi-Fi code from row 1. Each style should scan as quickly as the plain sq
 | 24 | Swish look "Colour gradient" with the Swish symbol | | |
 | 25 | Transparent PNG placed on a coloured background in a document | | |
 | 26 | Dark mode in Windows: preview and export still white | | |
+| 27 | Liquid dots + squircle corners + three-colour gradient | | |
+| 28 | Stars + drop corners, corner centres in their own colour | | |
+| 29 | Mosaic + cut corners, dots pattern and rounded code corners in a border frame | | |
+| 30 | Round badge frame (curved text) and corner band frame | | |
+| 31 | Map pin and envelope frames | | |
+| 32 | Initials logo and the Wi-Fi icon logo, 30 % | | |
 
 ## 3. Printouts
 

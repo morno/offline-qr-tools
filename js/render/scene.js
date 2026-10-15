@@ -7,7 +7,7 @@
  *   rect   { x, y, w, h, fill }
  *   path   { d, fill?, stroke?, lineWidth?, dash?, cap? }   (SVG path syntax)
  *   circle { cx, cy, r, fill }
- *   text   { x, y, text, size, bold, fill }                  (centered)
+ *   text   { x, y, text, size, bold, fill, rotate? }         (centered; rotate in radians around x, y)
  *   image  { x, y, w, h, img, href }
  * sceneToCanvas() and sceneToSVG() (render/renderer.js) translate the same list, so a new
  * style is written once and PNG, PDF and SVG exports always match.

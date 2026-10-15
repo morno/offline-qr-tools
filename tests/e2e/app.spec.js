@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require("node:fs");
+const { loadScripts } = require("../support/load-scripts");
 const { test, expect, openApp, openAllSections, enterNetwork, waitForScan, decodePng, pdfSearchableText, download } = require("./fixtures");
 
 // FICTIONAL TEST DATA - not a real network or password.
@@ -54,31 +55,55 @@ test("SVG and PDF exports never contain the password as text", async ({ guarded:
   expect(pdf.data.length).toBeLessThan(300 * 1024); // compression guard (jsPDF 4 default is uncompressed)
 });
 
-test("every frame style and dot shape stays scannable", async ({ guarded: page }) => {
-  await openApp(page);
-  await enterNetwork(page, SSID, PASSWORD);
-  const failures = await page.evaluate(() => {
-    const bad = [];
-    for (const frame of Object.keys(FRAME_TEMPLATES)) {
-      for (const [i, shape] of Object.keys(MODULE_SHAPES).entries()) {
-        const eyeStyle = Object.keys(EYE_STYLES)[i % Object.keys(EYE_STYLES).length];
-        const opts = Object.assign(getRenderOpts(), { frameStyle: frame, qrShape: shape, eyeStyle: eyeStyle, textStyle: "plain", title: "Gäst-WiFi", caption: "Skanna mig", wifiIcon: true });
-        const scene = buildScene(currentQR, 640, opts);
-        if (verifyScan(sceneToCanvas(scene), scene.cell, currentPayload).status !== "ok") bad.push(frame + "/" + shape + "/" + eyeStyle);
-      }
-    }
-    return bad;
-  });
-  expect(failures).toEqual([]);
-});
+// One test per frame (run in parallel): every dot shape, cycling through the corner styles,
+// with heading, caption and Wi-Fi icon. Text the renderer had to drop counts as a failure.
+const FRAME_IDS = Object.keys(loadScripts(["js/core/util.js", "js/render/templates.js"], { document: { createElement: () => ({ getContext: () => ({}) }) } })("FRAME_TEMPLATES"));
 
-test("every dot shape x corner style x gradient stays scannable", async ({ guarded: page }) => {
-  await openApp(page);
-  await enterNetwork(page, SSID, PASSWORD);
-  const result = await page.evaluate(() => {
-    const bad = [];
-    let count = 0;
-    for (const shape of Object.keys(MODULE_SHAPES)) {
+for (const frameId of FRAME_IDS) {
+  test("frame '" + frameId + "' x every dot shape stays scannable and keeps its text", async ({ guarded: page }) => {
+    await openApp(page);
+    await enterNetwork(page, SSID, PASSWORD);
+    const result = await page.evaluate((frame) => {
+      const bad = [];
+      const dropped = [];
+      const warn = console.warn;
+      console.warn = function(msg) { dropped.push(String(msg)); };
+      try {
+        for (const [i, shape] of Object.keys(MODULE_SHAPES).entries()) {
+          const eyeStyle = Object.keys(EYE_STYLES)[i % Object.keys(EYE_STYLES).length];
+          const opts = Object.assign(getRenderOpts(), { frameStyle: frame, qrShape: shape, eyeStyle: eyeStyle, textStyle: "plain", title: "Gäst-WiFi", caption: "Skanna mig", wifiIcon: true });
+          const scene = buildScene(currentQR, 640, opts);
+          if (verifyScan(sceneToCanvas(scene), scene.cell, currentPayload).status !== "ok") bad.push(frame + "/" + shape + "/" + eyeStyle);
+        }
+        // Every text size, with and without texts: the layout must never put text over the code.
+        for (const textSizeScale of [0.8, 1.2, 1.6, 2.0]) {
+          for (const texts of [["", ""], ["Gäst-WiFi", ""], ["", "Skanna mig"], ["En mycket lång rubrik som inte får plats", "Café 🍩 – en lång text som måste kortas av"]]) {
+            const opts = Object.assign(getRenderOpts(), { frameStyle: frame, textStyle: "plain", title: texts[0], caption: texts[1], textSizeScale: textSizeScale, wifiIcon: true });
+            const scene = buildScene(currentQR, 520, opts);
+            if (verifyScan(sceneToCanvas(scene), scene.cell, currentPayload).status !== "ok") bad.push(frame + "/text " + textSizeScale + "/" + texts.join("|"));
+          }
+        }
+      } finally {
+        console.warn = warn;
+      }
+      return { bad: bad, dropped: dropped };
+    }, frameId);
+    expect(result.bad).toEqual([]);
+    expect(result.dropped).toEqual([]);
+  });
+}
+
+// One test per dot shape (run in parallel): every corner style x gradient x two sizes.
+// The ids are read from the registry itself, so a new shape is tested automatically.
+const SHAPE_IDS = Object.keys(loadScripts(["js/core/util.js", "js/render/shapes.js"])("MODULE_SHAPES"));
+
+for (const shapeId of SHAPE_IDS) {
+  test("dot shape '" + shapeId + "' x every corner style x gradient stays scannable", async ({ guarded: page }) => {
+    await openApp(page);
+    await enterNetwork(page, SSID, PASSWORD);
+    const result = await page.evaluate((shape) => {
+      const bad = [];
+      let count = 0;
       for (const eye of Object.keys(EYE_STYLES)) {
         for (const gradient of GRADIENT_TYPES) {
           // Alternate the custom eye colour so both code paths are covered without doubling the grid.
@@ -93,12 +118,12 @@ test("every dot shape x corner style x gradient stays scannable", async ({ guard
           count++;
         }
       }
-    }
-    return { bad: bad, count: count };
+      return { bad: bad, count: count, eyes: Object.keys(EYE_STYLES).length };
+    }, shapeId);
+    expect(result.count).toBe(result.eyes * 6);
+    expect(result.bad).toEqual([]);
   });
-  expect(result.count).toBeGreaterThanOrEqual(8 * 5 * 5);
-  expect(result.bad).toEqual([]);
-});
+}
 
 test("gradients and custom eye colours are valid in the SVG export", async ({ guarded: page }) => {
   await openApp(page);

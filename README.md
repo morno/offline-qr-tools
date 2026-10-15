@@ -24,13 +24,19 @@ Create styled, print-ready QR codes for **Wi-Fi**, **web addresses**, **text**, 
 - Direct links to a type, e.g. `index.html#url` or `index.html#vcard`
 - Opens in your browser's language (Swedish or English, otherwise English), remembers a manual
   choice, and `?lang=sv` / `?lang=en` in a link forces a language
-- Styling: 12 dot shapes (squares, small squares, rounded, circles, flowing, classy, diamonds,
-  hexagons, plus signs, hearts, vertical and horizontal lines), 8 corner styles, color gradients
-  (fixed directions, a custom angle or radial), a separate corner color, quick styles (Classic, Modern, Elegant, Playful,
-  Minimal, Retro), logo, and frames: border, double, dashed, viewfinder corners, card, Polaroid,
-  postage stamp, ribbon and speech bubble. Every shape combination is decode-tested.
+- Styling: 19 dot shapes (squares, small squares, rounded, circles, flowing, liquid, classy,
+  classy rounded, diamonds, hexagons, plus signs, hearts, stars, drops, beads, squircles, mosaic,
+  vertical and horizontal lines), 12 corner styles, color gradients (fixed directions, a custom
+  angle or radial, with an optional third colour), separate colours for the corners and their
+  centres, rounded corners on the code area, subtle background patterns, brand colours shown in
+  every colour picker, quick styles (Classic, Modern, Elegant, Playful, Minimal, Retro) and 29
+  frames — from a simple border, card, ticket, Polaroid and postage stamp to a hang tag, corner
+  band, awning, chalkboard, tab, arrow, raised card and round badge, plus frames that match the
+  content type (calendar page, map pin, envelope, phone, business card, Wi-Fi symbol), offered
+  with one click. Every shape and frame combination is decode-tested.
 - Logo with an empty area behind it (the modules are removed, the code's positioning patterns
-  are kept), a white plate, or straight on top
+  are kept), a white plate, or straight on top; cropped round or with rounded corners, with an
+  optional ring — or no image at all: initials or a built-in icon drawn in the code colour
 - Advanced: error correction level (automatic, or L/M/Q/H; always H with a logo) and the margin
   around the code (2, 4 or 6 modules)
 - Transparent background for PNG and SVG

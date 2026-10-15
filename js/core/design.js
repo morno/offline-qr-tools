@@ -25,6 +25,8 @@ const DESIGN_MAX_FILE_BYTES = 3 * 1024 * 1024 + 512 * 1024; // a 2 MB logo is ~2
 const DESIGN_LOGO_MAX_BYTES = 2 * 1024 * 1024;              // same cap as an uploaded logo
 const DESIGN_LOGO_PREFIX = "data:image/png;base64,";
 
+const BRAND_PALETTE_MAX = 8;
+
 const DESIGN_FIELDS = {
   qrShape: { kind: "enum" },
   eyeStyle: { kind: "enum" },
@@ -33,12 +35,22 @@ const DESIGN_FIELDS = {
   gradient: { kind: "enum" },
   gradientAngle: { kind: "int", min: 0, max: 355 },
   gradientColor2: { kind: "hex" },
+  useGradientColor3: { kind: "bool" },
+  gradientColor3: { kind: "hex" },
   customEyeColor: { kind: "bool" },
   eyeColor: { kind: "hex" },
+  customEyeBallColor: { kind: "bool" },
+  eyeBallColor: { kind: "hex" },
+  qrCornerRadius: { kind: "enum" },
+  bgPattern: { kind: "enum" },
   logoSize: { kind: "int", min: 10, max: 30 },
   logoBackground: { kind: "enum" },
+  logoShape: { kind: "enum" },
+  logoRing: { kind: "bool" },
+  logoIcon: { kind: "enum" },
   frameStyle: { kind: "enum" },
   frameColor: { kind: "hex" },
+  frameColor2: { kind: "hex" },
   textStyle: { kind: "enum" },
   textBgColor: { kind: "hex" },
   textSize: { kind: "enum" },
@@ -47,7 +59,8 @@ const DESIGN_FIELDS = {
   wifiIcon: { kind: "bool" },
   ecLevel: { kind: "enum" },
   quietZone: { kind: "enum" },
-  transparentBg: { kind: "bool" }
+  transparentBg: { kind: "bool" },
+  brandPalette: { kind: "hexList", max: BRAND_PALETTE_MAX }
 };
 
 function hasOwn(obj, key) {
@@ -67,6 +80,11 @@ function validateDesignValue(field, value, allowed) {
       return typeof value === "boolean" ? value : undefined;
     case "int":
       return Number.isInteger(value) && value >= field.min && value <= field.max ? value : undefined;
+    case "hexList":
+      // A short list of distinct #rrggbb colours (the brand palette).
+      if (!Array.isArray(value) || value.length > field.max) return undefined;
+      if (!value.every(function(v) { return typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v); })) return undefined;
+      return value.map(function(v) { return v.toLowerCase(); }).filter(function(v, i, list) { return list.indexOf(v) === i; });
     case "enum":
       return typeof value === "string" && Array.isArray(allowed) && allowed.indexOf(value) >= 0 ? value : undefined;
     default:

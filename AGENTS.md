@@ -62,13 +62,14 @@ js/core/password.js         PURE: generateWifiPassword(randomBytes) — the UI p
 js/core/design.js           PURE: design files — DESIGN_FIELDS, buildDesign(), parseDesignFile()
 js/render/scene.js          Scene primitives, text fitting (needs a canvas)
 js/render/shapes.js         PURE: MODULE_SHAPES, EYE_STYLES, GRADIENT_TYPES, qrPaint()
-js/render/templates.js      FRAME_TEMPLATES (none, border, rounded, dashed, double, brackets, card, ticket, polaroid, stamp, ribbon, bubble)
+js/render/templates.js      FRAME_TEMPLATES (29 frames, see "Frame templates") and their text helpers
 js/render/renderer.js       buildScene(), sceneToCanvas(), sceneToSVG()
 js/ui/state.js              Shared mutable UI state (currentQR, currentPayload, …)
 js/ui/i18n.js               t(), applyI18n(), language picker
-js/ui/color-picker.js       Accessible colour picker
+js/ui/color-picker.js       Accessible colour picker; brand palette row (readBrandPalette/writeBrandPalette)
 js/ui/scan-check.js         Scan self-test (jsQR)
-js/ui/logo.js               Hardened logo upload (decodeLogoBuffer, also used for design files; loadBundledLogo); a load counter makes the newest load or removal win
+js/ui/logo.js               Hardened logo upload (decodeLogoBuffer, also used for design files; loadBundledLogo); a load counter makes the newest load or removal win;
+                            logo shapes (shapedLogo), generated logos from initials or LOGO_ICONS
 js/assets/swish-symbols.js  GENERATED: the Swish symbol (colour + grayscale) as data URLs — Getswish AB trademark
 js/ui/design-file.js        Save / open design files (loaded last)
 js/app.js                   Controller: form → payload → preview → downloads (loaded last but one)
@@ -135,7 +136,8 @@ are inserted unescaped. `buildPayload()` in `js/app.js` only reads the form and 
 
 ### Scene model and renderers (`js/render/*`)
 `buildScene(qr, sizePx, opts)` returns `{ w, h, items, cell, lowTextContrast }` where `items` is a
-flat list of primitives: `rect`, `path` (SVG path syntax), `circle`, `text`, `image`.
+flat list of primitives: `rect`, `path` (SVG path syntax), `circle`, `text` (optionally `rotate`,
+radians around its centre), `image` (an `<img>` or a `<canvas>`).
 `sceneToCanvas()` (PNG, PDF, preview) and `sceneToSVG()` render the same list, so every style is
 written once. The QR block (modules + quiet zone of 2, 4 or 6 modules, `opts.quietZone`) is drawn
 by the core, never by a template, and text overlapping it is dropped — templates cannot break
@@ -147,35 +149,57 @@ with separators, format information, timing and alignment patterns — the align
 checked against the vendored library); `plate` draws a white plate; `none` draws the logo on top.
 With a logo the code is at least version 3 (`LOGO_MIN_VERSION` in `js/app.js`): versions 1–2 have
 too few data modules, and short payloads with a logo did not scan.
+`opts.logoShape` (`LOGO_SHAPES`: original, circle, rounded) crops the logo to a centred square
+(`shapedLogo()` in `js/ui/logo.js`, cached); `opts.logoRing` adds a ring in the code colour.
+Generated logos — initials (`cleanInitials()`: at most 3 characters, no control characters) or a
+built-in icon (`LOGO_ICONS`, scene primitives in a 100 × 100 box) — are drawn on a disc in the
+code colour. They are **never saved as an image** in design files (`logoGenerated`): an icon is
+saved as the `logoIcon` field, and initials are text, which design files never contain.
+
+Surface options: `opts.qrCornerRadius` (`QR_CORNER_RADII`, in modules) rounds the block's corners,
+capped at 3/4 of the quiet zone so they never reach a finder pattern; `opts.bgPattern`
+(`BACKGROUND_PATTERNS`, `backgroundPatternD()`) draws a faint pattern on the page only — the block
+and its quiet zone are painted over it, and transparent exports leave it out.
 
 Transparent export (`opts.transparent`, PNG/SVG downloads only, never preview or PDF): the page
 background and the QR background are left out, except when the template sets
-`blockOnPaper: true` (card, ticket, polaroid, stamp) — there the QR keeps its background on the paper.
+`blockOnPaper: true` (card, ticket, polaroid, stamp, hangTag, chalkboard, splitCard, elevated,
+badge, calendar, mapPin, envelope, phone, businessCard) — there the QR keeps its background on the paper.
 The background colour then only feeds the contrast checks, so the preview and the scan
 self-test show the code on the surface the user said it will be placed on.
 
 ### QR shapes and colours (`js/render/shapes.js`)
 - `MODULE_SHAPES`: square, rounded, dots, fluid, classy, diamond, smallSquares, hexagons, plus,
-  hearts, vlines, hlines. Each returns
+  hearts, vlines, hlines, liquid, classyRounded, beads, squircle, stars, drops, mosaic. Each returns
   SVG path data for all data modules (`pathD(isDark, n, x0, y0, cell)`); neighbour-aware shapes
   query `isDark(row ± 1, col ± 1)`, which is `false` outside the code and inside the eyes.
+  Shapes whose parts overlap (beads: circles plus bars) must use the same winding for every part
+  (`circleCwD()` matches `roundRectD()`), or the non-zero fill rule cuts holes where they overlap.
+  `mosaic` picks sizes with a fixed hash (`moduleNoise()`), never `Math.random`.
 - `EYE_STYLES`: the three finder patterns as **tested pairs** of an `EYE_FRAME_SHAPES` ring and an
   `EYE_BALL_SHAPES` centre (square, rounded, roundedDot, circle, circleRounded, leaf, leafDot,
-  pointed), drawn with `fillRule: "evenodd"` (so shapes inside one eye must not overlap).
+  pointed, squircle, chamfered, extraRounded, drop), drawn with `fillRule: "evenodd"` (so shapes inside one eye must not overlap).
   Frame and centre functions get `(x, y, cell, corner)`; `corner` (0 top-left, 1 top-right,
-  2 bottom-left) lets `pointed` aim its sharp corner at the middle of the code. They are pairs
+  2 bottom-left) lets `pointed` aim its sharp corner at the middle of the code (`drop` aims it
+  away). `eyePartsD()` returns frames and centres separately so `opts.eyeBallColor` can paint the
+  centres; `eyesPathD()` is both together. They are pairs
   on purpose: a square ring around a round centre (and similar mixes) broke decoding for
   30–90 % of the tested codes when combined with dots or lines. A ring of separate dots was
   tried and dropped (up to 65 % failures).
 - `qrPaint()` returns a flat colour or a gradient object (`linear`/`radial`, user-space
   coordinates spanning the code) that both renderers understand. `GRADIENT_TYPES` has fixed
   directions plus `angle` (`opts.gradientAngle`, 0° = left to right, 90° = top to bottom,
-  cleaned by `normalizeAngle()`; the end points always reach the corners of the code). Optional `eyeColor` paints
-  the eyes separately. The contrast warning checks every colour in use against the background.
+  cleaned by `normalizeAngle()`; the end points always reach the corners of the code);
+  `opts.gradientColor3` adds a middle stop (both renderers handle any number of stops). Optional `eyeColor` paints
+  the eyes separately (without it the eyes follow the gradient too). The contrast warning checks
+  every colour in use against the background, including the third gradient colour and the eye
+  centre colour.
 - Measured, not guessed: the dot radius (0.5), diamond radius (0.68), round centre (1.65 modules),
   line inset (0.05), small-square inset (0.07; 0.1 failed with gradients), hexagon radius
   (0.62), plus-sign arm (0.55) and heart scale (1.3; hearts overlap their neighbours, smaller
-  ones only decoded with warnings) were tuned with the scan self-test over many sizes and payloads. Do not
+  ones only decoded with warnings), squircle roundness (0.86 for dots, 0.92 for eyes: 0.86 failed
+  with small squares), bead radius/link (0.5/0.6; 0.46/0.5 failed on dense codes), star scale
+  (0.86) and mosaic sizes (0.86–1) were tuned with the scan self-test over many sizes and payloads. Do not
   shrink them for looks without re-running the tests.
 - Deliberately not offered: whole-code silhouettes (the entire code shaped like a heart, star or
   animal) and heavily decorated eyes — they depend on error correction to scan at all. Small
@@ -186,6 +210,8 @@ self-test show the code on the surface the user said it will be placed on.
 `style` holds only the controls listed in `DESIGN_FIELDS` (keys = control ids). **Content is never
 stored** — no SSID, password, URL, contact details, and no heading or caption text (a user may
 have typed a secret there); a unit test checks the design code never touches those fields.
+`brandPalette` (kind `hexList`, at most `BRAND_PALETTE_MAX` distinct colours) is held in the hidden
+`#brandPalette` input — in memory and in design files only, never in `localStorage`.
 Opening a file treats it as hostile: size cap before reading, `JSON.parse` only, every field
 validated by kind (hex, bool, int range, enum against the options that exist in the form),
 unknown keys ignored, prototype keys inert. The logo must be a base64 PNG within the logo size
@@ -196,9 +222,19 @@ is applied: a file with a bad logo changes nothing (`errDesignLogo`). Bump
 ### Frame templates (`FRAME_TEMPLATES` in `js/render/templates.js`)
 `none`, `border`, `rounded`, `dashed`, `double`, `brackets` (viewfinder corners), `card`,
 `ticket` (notched sides, perforation, caption on the stub), `polaroid`, `stamp` (perforated
-edges), `ribbon`, `bubble`. Each has
+edges), `ribbon`, `bubble`, `fieldset` (text in the outline), `hangTag`, `cornerBand`, `awning`,
+`chalkboard`, `doubleRibbon`, `splitCard` (`secondColor: true` → `#frameColor2`), `tab`, `arrow`,
+`elevated`, `badge` (curved text), and the type-matched `calendar`, `mapPin`, `envelope`, `phone`,
+`businessCard`, `wifiSignal` (`FRAME_SUGGESTIONS` in `js/app.js` offers one per content type with
+a button; never switched automatically). Each has
 `build(M, o, tx)` → `{ h, block, back, front, pageColor }`. `ownsText: true` means the template
 decides where text goes.
+
+Rotated text (`rotatedText()`, `arcText()`): the renderer's overlap check uses axis-aligned boxes,
+which are far too large for turned text, so these helpers check the exact rotated rectangle
+against the block themselves (`rotatedRectHits()`, separating axes) and drop what overlaps.
+Frames that put a large dark area next to the code (chalkboard, envelope, map pin) give the code
+extra paper outside the quiet zone: without it jsQR missed codes at some sizes.
 
 ### Scan self-test (`js/ui/scan-check.js`: `verifyScan`, `scheduleScanCheck`)
 After each change the preview is decoded locally with jsQR and compared **byte-for-byte** with
@@ -269,7 +305,9 @@ sampling (see `js/core/password.js`); never `Math.random` (a unit test checks).
 key and the content types it fits, `"*"` for all) and the key to every language file.
 
 **Add a frame style:** add an entry to `FRAME_TEMPLATES`, an `<option>` in `#frameStyle` and the
-label key in every language file. Use only scene primitives; never draw over the QR block.
+label key in every language file. Use only scene primitives; never draw over the QR block. The
+per-frame e2e test picks it up automatically and fails if any text is dropped (text that would
+overlap the code) at any text size, so leave room for the largest text size.
 
 **Add a print layout:** add a function to `PRINT_LAYOUTS` in `js/print-layouts.js` returning
 `{ w, h, items, moduleMm }`, plus an `<option>` in `#printLayout` and i18n keys.
@@ -309,7 +347,9 @@ npm run test:unit                    # fast, no browser
 - `tests/e2e/` (Playwright): every test runs inside guards that **fail it on any external network
   request, CSP violation or console error**. Covers every content type end to end, dangerous
   URLs, deep links, the scan self-test, exact decoding of the PNG
-  export, every frame × dot shape and every dot shape × corner style × gradient, logo backgrounds
+  export, every frame × dot shape (one test per frame, also every text size) and every dot shape ×
+  corner style × gradient (one test per dot shape), three-colour gradients, eye centre colours,
+  rounded block corners, background patterns, brand palette, generated and cropped logos, logo backgrounds
   at every logo size (including large codes with a central alignment pattern), error correction
   levels, quiet zones, transparent exports, saving/opening design files (and hostile ones), password never in SVG/PDF output, logo upload hardening,
   language switch, all print layouts (every QR on the page decoded), `file://` usage and

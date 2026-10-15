@@ -28,6 +28,7 @@ let logoLoadSeq = 0;
 
 function clearLogo() {
   logoLoadSeq++;
+  logoGenerated = false;
   logoImage = null;
   logoDataUrl = null;
   $("#logoFile").val("");
@@ -112,14 +113,23 @@ function loadLogoBuffer(buf) {
 // Logos shipped with the app (the Swish symbol in js/assets/swish-symbols.js). They are trusted
 // files, not user input, but still go through the same re-encode step so every logo in the
 // app is a clean PNG data URL. Only data URLs from the bundled list are accepted.
+// An uploaded or bundled logo replaces initials or an icon.
+function resetGeneratedLogoFields() {
+  $("#logoInitials").val("");
+  $("#logoIcon").val("none");
+  logoGenerated = false;
+}
+
 function loadBundledLogo(dataUrl) {
   const bundled = typeof SWISH_SYMBOLS === "object" ? Object.keys(SWISH_SYMBOLS).map(function(k) { return SWISH_SYMBOLS[k]; }) : [];
   if (bundled.indexOf(dataUrl) < 0) return;
+  resetGeneratedLogoFields();
   finishLogoLoad(loadImage(dataUrl).then(normalizeLogo));
 }
 
 $("#logoFile").on("change", function(e) {
   const file = e.target.files && e.target.files[0];
+  if (file) resetGeneratedLogoFields();
   showMessage("#logoError", null);
   if (!file) return;
   // Checked before reading so a huge file is never loaded into memory.
@@ -128,7 +138,128 @@ $("#logoFile").on("change", function(e) {
 });
 
 $("#removeLogo").on("click", function() {
+  resetGeneratedLogoFields();
   clearLogo();
   showMessage("#logoError", null);
   updatePreview();
 });
+
+/* ---- Logo shape (crop) ----------------------------------------------------- */
+
+// Crops the logo to a centred square cut as a circle or rounded square. The result is a canvas
+// (drawn directly) plus its PNG data URL (for SVG), cached so the preview does not redo it.
+let shapedLogoCache = { key: null, value: null };
+
+function shapedLogo(img, dataUrl, shape) {
+  if (!img || !dataUrl || LOGO_SHAPES.indexOf(shape) <= 0) return { img: img, dataUrl: dataUrl };
+  const key = shape + "|" + dataUrl;
+  if (shapedLogoCache.key === key) return shapedLogoCache.value;
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  const side = Math.min(w, h);
+  const c = document.createElement("canvas");
+  c.width = c.height = side;
+  const ctx = c.getContext("2d");
+  ctx.clip(new Path2D(shape === "circle" ? circleD(side / 2, side / 2, side / 2) : roundRectD(0, 0, side, side, side * LOGO_ROUNDED_RADIUS)));
+  ctx.drawImage(img, (w - side) / 2, (h - side) / 2, side, side, 0, 0, side, side);
+  shapedLogoCache = { key: key, value: { img: c, dataUrl: c.toDataURL("image/png") } };
+  return shapedLogoCache.value;
+}
+
+/* ---- Generated logos: initials and built-in icons ------------------------ */
+
+// Built-in icons, drawn in a 100 × 100 box with scene primitives (render/scene.js), so they need
+// no image file and no upload. They are drawn in white (or black) on a disc in the code colour;
+// details marked CUT_OUT take the disc colour.
+const CUT_OUT = "cut-out";
+
+function iconStroke(d, color, w) { return { type: "path", d: d, stroke: color, lineWidth: w || 7, cap: "round" }; }
+
+const LOGO_ICONS = {
+  wifi: function(c) { return wifiIconItems(50, 52, 62, c); },
+  phone: function(c) {
+    return [{ type: "path", fill: c, d: "M33 22C30 22 25 26 25 31C25 52 48 75 69 75C74 75 78 70 78 67V60C78 58 76 56 74 56L62 54C60 54 59 55 58 56L54 61C46 57 43 54 39 46L44 42C45 41 46 40 46 38L44 26C44 24 42 22 40 22Z" }];
+  },
+  envelope: function(c) {
+    return [{ type: "path", fill: c, d: roundRectD(20, 30, 60, 42, 5) }, iconStroke("M24 35L50 55L76 35", CUT_OUT, 5)];
+  },
+  pin: function(c) {
+    return [{ type: "path", fill: c, fillRule: "evenodd", d: "M50 82L31 54A23 23 0 1 1 69 54Z" + circleD(50, 41, 9) }];
+  },
+  calendar: function(c) {
+    return [
+      { type: "path", fill: c, fillRule: "evenodd", d: roundRectD(22, 27, 56, 50, 6) + roundRectD(28, 43, 44, 28, 2) },
+      { type: "path", fill: c, d: roundRectD(33, 20, 7, 15, 3.5) + roundRectD(60, 20, 7, 15, 3.5) + roundRectD(34, 48, 10, 8, 1) + roundRectD(56, 59, 10, 8, 1) }
+    ];
+  },
+  cup: function(c) {
+    return [
+      { type: "path", fill: c, d: "M24 42H68V58C68 70 60 78 46 78C32 78 24 70 24 58Z" },
+      iconStroke("M68 48C80 48 80 64 68 64", c, 6),
+      iconStroke("M38 22C34 27 42 30 38 35M52 22C48 27 56 30 52 35", c, 4)
+    ];
+  },
+  heart: function(c) { return [{ type: "path", fill: c, d: heartD(50, 53, 66) }]; },
+  star: function(c) { return [{ type: "path", fill: c, d: starD(50, 53, 34) }]; }
+};
+
+const LOGO_INITIALS_MAX = 3;
+let logoGenerated = false; // true while the logo comes from initials or an icon (never saved as an image)
+
+// Initials: well-formed, no control characters or spaces, at most three characters (code points).
+function cleanInitials(raw) {
+  return Array.from(toWellFormed(raw || "").replace(/[\u0000-\u001F\u007F\s]+/g, "")).slice(0, LOGO_INITIALS_MAX).join("").toUpperCase();
+}
+
+// Draws a generated logo: a disc in the code colour with initials or an icon in the contrast colour.
+function buildGeneratedLogo(initials, iconId) {
+  const size = 512;
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const ctx = c.getContext("2d");
+  const bg = sanitizeHex($("#qrColor").val(), "#000000");
+  const fg = contrastTextColor(bg);
+  ctx.fillStyle = bg;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.fill();
+  if (initials) {
+    const px = size * (initials.length > 2 ? 0.36 : initials.length > 1 ? 0.44 : 0.56);
+    ctx.fillStyle = fg;
+    ctx.font = "bold " + px + "px " + FONT_FAMILY;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(initials, size / 2, size / 2 + px * 0.04, size * 0.8);
+  } else if (Object.prototype.hasOwnProperty.call(LOGO_ICONS, iconId)) {
+    ctx.save();
+    ctx.scale(size / 100, size / 100);
+    LOGO_ICONS[iconId](fg).forEach(function(it) {
+      drawCanvasItem(ctx, Object.assign({}, it, it.stroke === CUT_OUT ? { stroke: bg } : {}));
+    });
+    ctx.restore();
+  }
+  return { img: c, dataUrl: c.toDataURL("image/png") };
+}
+
+// Applies (or removes) the generated logo after the initials field or icon select changed.
+function updateGeneratedLogo() {
+  const initials = cleanInitials($("#logoInitials").val());
+  const icon = $("#logoIcon").val();
+  if (!initials && !Object.prototype.hasOwnProperty.call(LOGO_ICONS, icon)) {
+    if (logoGenerated) { clearLogo(); updatePreview(); }
+    return;
+  }
+  useDecodedLogo(buildGeneratedLogo(initials, icon));
+  logoGenerated = true;
+  $("#designLogoWrap").hide();
+}
+
+$("#logoInitials").on("input", function() {
+  if (cleanInitials($(this).val())) $("#logoIcon").val("none");
+  updateGeneratedLogo();
+});
+$("#logoIcon").on("change", function() {
+  if ($(this).val() !== "none") $("#logoInitials").val("");
+  updateGeneratedLogo();
+});
+// The generated disc follows the code colour.
+$("#qrColor").on("change", function() { if (logoGenerated) updateGeneratedLogo(); });

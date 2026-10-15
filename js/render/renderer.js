@@ -12,11 +12,15 @@ function rectsOverlap(a, b) {
 
 const QUIET_ZONE_CHOICES = [2, 4, 6];
 const LOGO_BACKGROUNDS = ["clear", "plate", "none"];
+const QR_CORNER_RADII = [0, 1, 2]; // rounded corners of the QR block, in modules
+const LOGO_SHAPES = ["original", "circle", "rounded"];
+const LOGO_ROUNDED_RADIUS = 0.22; // corner radius of a "rounded" logo, as a share of its width
 
 // Logo size and position in pixels, centred on the code area.
 function logoLayout(o, qx, qy, qrSize) {
   const box = qrSize * (o.logoSizePercent / 100);
-  const ratio = (o.logoImage.naturalWidth / o.logoImage.naturalHeight) || 1;
+  // An <img> has natural sizes, a generated or shaped logo (a <canvas>) only width/height.
+  const ratio = ((o.logoImage.naturalWidth || o.logoImage.width) / (o.logoImage.naturalHeight || o.logoImage.height)) || 1;
   const lw = ratio >= 1 ? box : box * ratio;
   const lh = ratio >= 1 ? box / ratio : box;
   return { box: box, w: lw, h: lh, x: qx + (qrSize - lw) / 2, y: qy + (qrSize - lh) / 2 };
@@ -62,7 +66,14 @@ function buildScene(qr, S, o) {
   // background, otherwise the paper colour would show between the modules.
   const transparent = o.transparent === true;
   const items = [];
-  if (r.pageColor && !transparent) items.push({ type: "rect", x: 0, y: 0, w: W, h: H, fill: r.pageColor });
+  if (r.pageColor && !transparent) {
+    items.push({ type: "rect", x: 0, y: 0, w: W, h: H, fill: r.pageColor });
+    // A subtle pattern on the page only: the QR block and its quiet zone are painted over it.
+    if (BACKGROUND_PATTERNS.indexOf(o.bgPattern) > 0) {
+      const tint = shadeHex(r.pageColor, relativeLuminance(r.pageColor) > 0.5 ? -0.08 : 0.12);
+      items.push({ type: "path", d: backgroundPatternD(o.bgPattern, W, H, S * 0.04), fill: tint });
+    }
+  }
   items.push.apply(items, r.back);
 
   // QR block: its background covers the full quiet zone, so no decoration can intrude on it.
@@ -72,8 +83,12 @@ function buildScene(qr, S, o) {
   const qx = block.x + cell * quiet;
   const qy = block.y + cell * quiet;
   const qrSize = cell * modCount;
+  // Rounded block corners stay inside the quiet zone (at most 3/4 of it), so they never reach
+  // a finder pattern.
+  const cornerModules = QR_CORNER_RADII.indexOf(o.qrCornerRadius) >= 0 ? o.qrCornerRadius : 0;
+  const blockRadius = Math.max(block.radius || 0, Math.min(cornerModules, quiet * 0.75) * cell);
   if (!transparent || tpl.blockOnPaper) {
-    items.push({ type: "path", d: roundRectD(block.x, block.y, block.size, block.size, block.radius || 0), fill: o.qrBgColor });
+    items.push({ type: "path", d: roundRectD(block.x, block.y, block.size, block.size, blockRadius), fill: o.qrBgColor });
   }
 
   const hasLogo = Boolean(o.logoImage && o.logoDataUrl);
@@ -91,7 +106,13 @@ function buildScene(qr, S, o) {
   const moduleShape = MODULE_SHAPES[o.qrShape] || MODULE_SHAPES.square;
   const paint = qrPaint(o, qx, qy, cell * modCount);
   items.push({ type: "path", d: moduleShape.pathD(isData, modCount, qx, qy, cell), fill: paint });
-  items.push({ type: "path", d: eyesPathD(modCount, qx, qy, cell, o.eyeStyle), fill: o.eyeColor || paint, fillRule: "evenodd" });
+  if (o.eyeBallColor) {
+    const eyes = eyePartsD(modCount, qx, qy, cell, o.eyeStyle);
+    items.push({ type: "path", d: eyes.frames, fill: o.eyeColor || paint, fillRule: "evenodd" });
+    items.push({ type: "path", d: eyes.balls, fill: o.eyeBallColor, fillRule: "evenodd" });
+  } else {
+    items.push({ type: "path", d: eyesPathD(modCount, qx, qy, cell, o.eyeStyle), fill: o.eyeColor || paint, fillRule: "evenodd" });
+  }
 
   // The logo hides or replaces modules; the app always uses error correction level H with a
   // logo to compensate ("clear" removes the modules behind it, "plate" draws a white plate,
@@ -102,6 +123,14 @@ function buildScene(qr, S, o) {
       items.push({ type: "path", d: roundRectD(logo.x - pad, logo.y - pad, logo.w + pad * 2, logo.h + pad * 2, logo.box * 0.12), fill: "#ffffff" });
     }
     items.push({ type: "image", x: logo.x, y: logo.y, w: logo.w, h: logo.h, img: o.logoImage, href: o.logoDataUrl });
+    // Optional ring in the code colour round a round or rounded logo.
+    if (o.logoRing && (o.logoShape === "circle" || o.logoShape === "rounded")) {
+      const lw = Math.max(1.5, cell * 0.3);
+      const ring = o.logoShape === "circle"
+        ? circleD(logo.x + logo.w / 2, logo.y + logo.h / 2, logo.w / 2 - lw / 2)
+        : roundRectD(logo.x + lw / 2, logo.y + lw / 2, logo.w - lw, logo.h - lw, logo.w * LOGO_ROUNDED_RADIUS);
+      items.push({ type: "path", d: ring, stroke: o.qrColor, lineWidth: lw });
+    }
   }
 
   r.front.forEach(function(it) {
@@ -125,8 +154,7 @@ function canvasPaint(ctx, fill) {
   const g = fill.gradient === "radial"
     ? ctx.createRadialGradient(fill.cx, fill.cy, 0, fill.cx, fill.cy, fill.r)
     : ctx.createLinearGradient(fill.x1, fill.y1, fill.x2, fill.y2);
-  g.addColorStop(0, sanitizeHex(fill.stops[0], "#000000"));
-  g.addColorStop(1, sanitizeHex(fill.stops[1], "#000000"));
+  fill.stops.forEach(function(stop, i) { g.addColorStop(i / (fill.stops.length - 1), sanitizeHex(stop, "#000000")); });
   return g;
 }
 
@@ -173,10 +201,20 @@ function drawCanvasItem(ctx, it) {
       ctx.font = (it.bold ? "bold " : "") + it.size + "px " + FONT_FAMILY;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(it.text, it.x, it.y);
+      if (it.rotate) {
+        // Rotated text (corner bands, round badges) turns around its own centre.
+        ctx.save();
+        ctx.translate(it.x, it.y);
+        ctx.rotate(it.rotate);
+        ctx.fillText(it.text, 0, 0);
+        ctx.restore();
+      } else {
+        ctx.fillText(it.text, it.x, it.y);
+      }
       break;
     case "image":
-      if (it.img && it.img.complete) ctx.drawImage(it.img, it.x, it.y, it.w, it.h);
+      // <img> must have finished loading; a <canvas> (generated or shaped logo) is always ready.
+      if (it.img && it.img.complete !== false) ctx.drawImage(it.img, it.x, it.y, it.w, it.h);
       break;
   }
 }
@@ -200,7 +238,9 @@ function svgGradientDefs(scene, gradientIds) {
     const known = Array.from(gradientIds.values()).indexOf(id) >= 0;
     gradientIds.set(g, id);
     if (known) return;
-    const stops = '<stop offset="0" stop-color="' + sanitizeHex(g.stops[0], "#000000") + '"/><stop offset="1" stop-color="' + sanitizeHex(g.stops[1], "#000000") + '"/>';
+    const stops = g.stops.map(function(stop, i) {
+      return '<stop offset="' + f(i / (g.stops.length - 1)) + '" stop-color="' + sanitizeHex(stop, "#000000") + '"/>';
+    }).join("");
     if (g.gradient === "radial") {
       defs.push('<radialGradient id="' + id + '" gradientUnits="userSpaceOnUse" cx="' + f(g.cx) + '" cy="' + f(g.cy) + '" r="' + f(g.r) + '">' + stops + "</radialGradient>");
     } else {
@@ -237,7 +277,8 @@ function sceneToSVG(scene) {
       case "text":
         // xml:space="preserve" keeps repeated spaces, as the canvas does when it measures and draws.
         out.push('<text xml:space="preserve" x="' + f(it.x) + '" y="' + f(it.y) + '" font-family="' + FONT_FAMILY + '" font-weight="' + (it.bold ? "bold" : "normal") +
-          '" font-size="' + f(it.size) + '" text-anchor="middle" dominant-baseline="central" fill="' + svgPaint(it.fill) + '">' + escapeXml(it.text) + "</text>");
+          '" font-size="' + f(it.size) + '" text-anchor="middle" dominant-baseline="central" fill="' + svgPaint(it.fill) + '"' +
+          (it.rotate ? ' transform="rotate(' + f(it.rotate * 180 / Math.PI) + " " + f(it.x) + " " + f(it.y) + ')"' : "") + ">" + escapeXml(it.text) + "</text>");
         break;
       case "image":
         // Only our own re-encoded PNG data URLs are ever embedded.

@@ -70,12 +70,31 @@ function updateStyleVisibility() {
   const textStyle = $("#textStyle").val();
   const owns = currentTemplate().ownsText;
   $("#frameColorWrap").toggle(frame !== "none");
+  $("#frameColor2Wrap").toggle(Boolean(currentTemplate().secondColor));
   $("#textExtras").toggle(textStyle !== "none");
   $("#textBgColorWrap").toggle(textStyle === "banner" && !owns);
   $("#textOwnedHint").toggle(owns);
 }
 $("#frameStyle, #textStyle").on("change", updateStyleVisibility);
 updateStyleVisibility();
+
+// A frame that matches the content type is offered with one click (never switched to on its own).
+const FRAME_SUGGESTIONS = { wifi: "wifiSignal", event: "calendar", geo: "mapPin", email: "envelope", phone: "phone", sms: "phone", vcard: "businessCard" };
+
+function updateFrameSuggestion() {
+  const frame = Object.prototype.hasOwnProperty.call(FRAME_SUGGESTIONS, currentType) ? FRAME_SUGGESTIONS[currentType] : null;
+  const btn = $("#suggestFrame");
+  if (!frame || $("#frameStyle").val() === frame) { btn.hide(); return; }
+  const label = $("#frameStyle option[value=" + frame + "]").attr("data-i18n");
+  btn.attr("data-frame", frame).text(t("frameSuggest").replace("{x}", t(label))).show();
+}
+$("#suggestFrame").on("click", function() {
+  const frame = $(this).attr("data-frame");
+  if (!Object.prototype.hasOwnProperty.call(FRAME_TEMPLATES, frame)) return;
+  $("#frameStyle").val(frame).trigger("change");
+});
+$("#frameStyle").on("change", updateFrameSuggestion);
+$(document).on("qrtype:changed i18n:applied", updateFrameSuggestion);
 
 /* ---- QR style: shape registries, gradient, eye colour, presets ---------- */
 
@@ -93,11 +112,15 @@ $("select[data-registry]").each(function() {
 });
 
 function updateQrStyleVisibility() {
-  $("#gradientColor2Wrap").toggle($("#gradient").val() !== "none");
+  const graded = $("#gradient").val() !== "none";
+  $("#gradientColor2Wrap").toggle(graded);
+  $("#useGradientColor3Wrap").toggle(graded);
+  $("#gradientColor3Wrap").toggle(graded && $("#useGradientColor3").is(":checked"));
+  $("#eyeBallColorWrap").toggle($("#customEyeBallColor").is(":checked"));
   $("#gradientAngleWrap").toggle($("#gradient").val() === "angle");
   $("#eyeColorWrap").toggle($("#customEyeColor").is(":checked"));
 }
-$("#gradient, #customEyeColor").on("change", updateQrStyleVisibility);
+$("#gradient, #customEyeColor, #useGradientColor3, #customEyeBallColor").on("change", updateQrStyleVisibility);
 updateQrStyleVisibility();
 
 // Shows the angle next to the label; screen readers announce "45°" instead of a bare number.
@@ -124,6 +147,8 @@ function applySwishLook(name) {
   const look = SWISH_LOOKS[name];
   Object.keys(look.style).forEach(function(id) { $("#" + id).val(look.style[id]).trigger("change"); });
   $("#customEyeColor").prop("checked", false).trigger("change");
+  $("#customEyeBallColor").prop("checked", false).trigger("change");
+  $("#useGradientColor3").prop("checked", false).trigger("change");
   $("#logoSize").val("25").trigger("change");
   $("#logoBackground").val("clear").trigger("change");
   // The symbol may only be used without the wordmark when "Swish" is written in text.
@@ -193,7 +218,9 @@ function checkQrContrast() {
   const o = getRenderOpts();
   const inks = [o.qrColor];
   if (o.gradient !== "none") inks.push(o.gradientColor2);
+  if (o.gradientColor3) inks.push(o.gradientColor3);
   if (o.eyeColor) inks.push(o.eyeColor);
+  if (o.eyeBallColor) inks.push(o.eyeBallColor);
   const bg = relativeLuminance(o.qrBgColor);
   const weak = inks.some(function(ink) { return Math.abs(relativeLuminance(ink) - bg) < 0.4; });
   $("#contrastWarning").toggle(weak);
@@ -295,10 +322,14 @@ function getRenderOpts() {
   }
   const scale = parseFloat($("#textSize").val());
   const qrColor = sanitizeHex($("#qrColor").val(), "#000000");
+  const gradient = GRADIENT_TYPES.indexOf($("#gradient").val()) >= 0 ? $("#gradient").val() : "none";
+  const logoShape = LOGO_SHAPES.indexOf($("#logoShape").val()) >= 0 ? $("#logoShape").val() : "original";
+  const shaped = shapedLogo(logoImage, logoDataUrl, logoShape);
 
   return {
     frameStyle: FRAME_TEMPLATES[$("#frameStyle").val()] ? $("#frameStyle").val() : "none",
     frameColor: sanitizeHex($("#frameColor").val(), "#1a1a1a"),
+    frameColor2: sanitizeHex($("#frameColor2").val(), "#0369a1"),
     textStyle: textStyle,
     textBgColor: sanitizeHex($("#textBgColor").val(), "#1a1a1a"),
     title: showText ? $("#titleText").val().trim() : "",
@@ -308,18 +339,24 @@ function getRenderOpts() {
     wifiIcon: currentType === "wifi" && $("#wifiIcon").is(":checked"),
     qrShape: registryValue(MODULE_SHAPES, $("#qrShape").val()),
     eyeStyle: registryValue(EYE_STYLES, $("#eyeStyle").val()),
-    gradient: GRADIENT_TYPES.indexOf($("#gradient").val()) >= 0 ? $("#gradient").val() : "none",
+    gradient: gradient,
     gradientColor2: sanitizeHex($("#gradientColor2").val(), qrColor),
     gradientAngle: normalizeAngle($("#gradientAngle").val()),
+    gradientColor3: gradient !== "none" && $("#useGradientColor3").is(":checked") ? sanitizeHex($("#gradientColor3").val(), qrColor) : null,
     eyeColor: $("#customEyeColor").is(":checked") ? sanitizeHex($("#eyeColor").val(), qrColor) : null,
+    eyeBallColor: $("#customEyeBallColor").is(":checked") ? sanitizeHex($("#eyeBallColor").val(), qrColor) : null,
+    qrCornerRadius: QR_CORNER_RADII.indexOf(parseInt($("#qrCornerRadius").val(), 10)) >= 0 ? parseInt($("#qrCornerRadius").val(), 10) : 0,
+    bgPattern: BACKGROUND_PATTERNS.indexOf($("#bgPattern").val()) >= 0 ? $("#bgPattern").val() : "none",
     qrColor: qrColor,
     qrBgColor: sanitizeHex($("#qrBgColor").val(), "#ffffff"),
     logoSizePercent: Math.max(10, Math.min(30, parseInt($("#logoSize").val(), 10) || 20)),
     logoBackground: LOGO_BACKGROUNDS.indexOf($("#logoBackground").val()) >= 0 ? $("#logoBackground").val() : "clear",
     quietZone: QUIET_ZONE_CHOICES.indexOf(parseInt($("#quietZone").val(), 10)) >= 0 ? parseInt($("#quietZone").val(), 10) : QUIET_ZONE_MODULES,
     transparent: false, // only PNG/SVG downloads set this (download handler)
-    logoImage: logoImage,
-    logoDataUrl: logoDataUrl
+    logoShape: logoShape,
+    logoRing: logoShape !== "original" && $("#logoRing").is(":checked"),
+    logoImage: shaped.img,
+    logoDataUrl: shaped.dataUrl
   };
 }
 
@@ -548,13 +585,18 @@ function updatePreview() {
   $("#download").prop("disabled", false);
 }
 
+$("#brandPalette").on("change", function() { $("#clearBrandPalette").toggle(readBrandPalette().length > 0); });
+$("#clearBrandPalette").on("click", function() { writeBrandPalette([]); });
 setupColorPicker("qrColor");
 setupColorPicker("qrBgColor");
 setupColorPicker("frameColor");
+setupColorPicker("frameColor2");
 setupColorPicker("textBgColor");
 setupColorPicker("textColor");
 setupColorPicker("gradientColor2");
 setupColorPicker("eyeColor");
+setupColorPicker("gradientColor3");
+setupColorPicker("eyeBallColor");
 
 // Free-text fields are debounced; discrete controls update immediately.
 const updatePreviewDebounced = debounce(updatePreview, 150);
@@ -565,8 +607,10 @@ $("input[name=qrType]").on("change", function() {
   updatePreview();
 });
 $("#security, #eapMethod, #phase2, #anonIdentity, #hidden, #evAllDay, #swAmountLocked, #swMessageLocked, #qrShape, #eyeStyle, #gradient, #gradientAngle, #gradientColor2, " +
-  "#customEyeColor, #eyeColor, #qrColor, #qrBgColor, #frameStyle, #frameColor, " +
-  "#textStyle, #textBgColor, #textSize, #autoTextColor, #textColor, #wifiIcon, #logoSize, #logoBackground, #quietZone, #ecLevel").on("input change", updatePreview);
+  "#customEyeColor, #eyeColor, #useGradientColor3, #gradientColor3, #customEyeBallColor, #eyeBallColor, #qrCornerRadius, #bgPattern, " +
+  "#qrColor, #qrBgColor, #frameStyle, #frameColor, #frameColor2, " +
+  "#textStyle, #textBgColor, #textSize, #autoTextColor, #textColor, #wifiIcon, #logoSize, #logoBackground, #logoShape, #logoRing, #quietZone, #ecLevel").on("input change", updatePreview);
+$("#logoShape").on("change", function() { $("#logoRingWrap").toggle($(this).val() !== "original"); });
 
 $(document).on("i18n:applied", function() { $("#logoPreview img").attr("alt", t("logoPreviewAlt")); });
 

@@ -125,3 +125,33 @@ test("format information next to the finders is structural and never cleared for
     }
   }
 });
+
+test("a third gradient colour sits in the middle of the stops", () => {
+  const base = { qrColor: "#000000", gradientColor2: "#1e3a8a", gradientColor3: "#e11d48" };
+  for (const type of GRADIENT_TYPES.slice(1)) {
+    assert.deepEqual(plain(qrPaint(Object.assign({ gradient: type }, base), 0, 0, 100).stops), ["#000000", "#e11d48", "#1e3a8a"], type);
+  }
+  assert.equal(qrPaint(Object.assign({ gradient: "none" }, base), 0, 0, 100), "#000000");
+});
+
+test("eye frames and centres can be drawn apart and add up to the whole eyes", () => {
+  const eyePartsD = get("eyePartsD");
+  for (const id of Object.keys(EYE_STYLES)) {
+    const parts = eyePartsD(N, 0, 0, 4, id);
+    assert.ok(parts.frames && parts.balls, id);
+    assert.equal(parts.frames + parts.balls, eyesPathD(N, 0, 0, 4, id), id);
+  }
+});
+
+test("background patterns produce safe path data and nothing for unknown kinds", () => {
+  const backgroundPatternD = get("backgroundPatternD");
+  const BACKGROUND_PATTERNS = get("BACKGROUND_PATTERNS");
+  assert.equal(BACKGROUND_PATTERNS[0], "none");
+  for (const kind of BACKGROUND_PATTERNS.slice(1)) {
+    const d = backgroundPatternD(kind, 200, 260, 20);
+    assert.ok(d.length > 0, kind);
+    assert.match(d, PATH_RE, kind);
+    assert.doesNotMatch(d, /NaN|Infinity|undefined/, kind);
+  }
+  for (const bad of ["none", "<script>", "constructor", undefined]) assert.equal(backgroundPatternD(bad, 100, 100, 10), "", String(bad));
+});
